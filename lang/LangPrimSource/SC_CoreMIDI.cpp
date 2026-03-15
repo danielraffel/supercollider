@@ -28,7 +28,7 @@ added prRestartMIDI
 19/9 call different actions,disconnect midiInPort, midiout: sendmidi
 04/feb/03 prListMIDIEndpoints modification by Ron Kuivila added jt.
 */
-#if SC_IPHONE
+#if SC_IPHONE || SC_IOS
 #    include <mach/mach_time.h>
 #else
 #    include <CoreAudio/HostTime.h>
@@ -701,7 +701,7 @@ int prSendSysex(VMGlobals* g, int numArgsPushed) {
     return ((MIDISendSysex(pk) == (OSStatus)0) ? errNone : errFailed);
 }
 
-#if SC_IPHONE
+#if SC_IPHONE || SC_IOS
 
 static struct mach_timebase_info machTimebaseInfo() {
     struct mach_timebase_info info;

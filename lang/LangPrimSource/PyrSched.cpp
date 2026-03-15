@@ -25,7 +25,11 @@
 #include "PyrPrimitive.h"
 #include "PyrSymbol.h"
 #ifdef __APPLE__
-#    include <CoreAudio/HostTime.h>
+#    if defined(SC_IOS)
+#        include <mach/mach_time.h>
+#    else
+#        include <CoreAudio/HostTime.h>
+#    endif
 #endif
 #include <stdarg.h>
 #include <stdlib.h>

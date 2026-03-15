@@ -242,15 +242,15 @@
 > Goal: Determine if sclang can run on iOS, what subset is viable
 
 ### 6.1 Build Investigation
-- [ ] Attempt to build sclang for iOS with maximum features disabled
-- [ ] Catalog all compile errors from lang/ when targeting iOS
-- [ ] Identify all `fork`/`exec`/`popen`/`system()` calls that need stubbing
-- [ ] Identify all macOS framework dependencies (Carbon, IOKit, etc.)
-- [ ] Identify all Qt-dependent code paths
-- [ ] Document: what can be stubbed vs what needs reimplementation
+- [x] Attempt to build sclang for iOS with maximum features disabled — libsclang builds for iOS arm64
+- [x] Catalog all compile errors from lang/ when targeting iOS — only 3 errors (all fixed)
+- [x] Identify all `fork`/`exec`/`popen`/`system()` calls that need stubbing — 4 call sites, all guarded
+- [x] Identify all macOS framework dependencies (Carbon, IOKit, etc.) — Carbon/IOKit/CoreServices excluded
+- [x] Identify all Qt-dependent code paths — fully optional, gated behind SC_QT/SC_IDE flags
+- [x] Document: what can be stubbed vs what needs reimplementation — see ai/phase6-sclang-findings.md
 
 ### 6.2 Minimal sclang Prototype (if build succeeds)
-- [ ] Stub all process-spawning primitives (return error gracefully)
+- [x] Stub all process-spawning primitives (return error gracefully) — system/popen return 0/-1 on iOS
 - [ ] Use in-process server boot (`World_New`) instead of `unixCmd`
 - [ ] Adapt filesystem paths for iOS sandbox
 - [ ] Attempt class library compilation

@@ -61,7 +61,7 @@ Primitives for File i/o.
 #if defined(__APPLE__) || defined(SC_IPHONE)
 #    include <CoreFoundation/CFString.h>
 #    include <CoreFoundation/CFBundle.h>
-#    ifndef SC_IPHONE
+#    if !defined(SC_IPHONE) && !defined(SC_IOS)
 #        include <CoreServices/CoreServices.h>
 #    endif
 #endif
@@ -1386,7 +1386,7 @@ int prPipeOpenArgv(struct VMGlobals* g, int numArgsPushed) {
     PyrSlot* modeSlot = g->sp;
 
     //????
-#ifdef SC_IPHONE
+#if defined(SC_IPHONE) || defined(SC_IOS)
     SetInt(callerSlot, 0);
     return errNone;
 #endif

@@ -1283,7 +1283,7 @@ int prBootInProcessServer(VMGlobals* g, int numArgsPushed) {
         options.mSharedControls = gInternalSynthServer.mSharedControls;
 
         // internal servers use the PID to identify the shared memory region
-#    if defined(SC_IPHONE)
+#    if defined(SC_IPHONE) || defined(SC_IOS)
         options.mSharedMemoryID = 0;
 #    elif !defined(_WIN32)
         options.mSharedMemoryID = getpid();
@@ -1418,7 +1418,7 @@ static int disconnectSharedMem(VMGlobals* g, PyrObject* object) {
 }
 
 int prConnectSharedMem(VMGlobals* g, int numArgsPushed) {
-#if !defined(SC_IPHONE)
+#if !defined(SC_IPHONE) && !defined(SC_IOS)
     PyrSlot* a = g->sp - 1;
     PyrSlot* b = g->sp;
 

@@ -62,6 +62,11 @@ PyrSymbol* s_unixCmdAction;
 int prString_System(struct VMGlobals* g, int numArgsPushed) {
     PyrSlot* a = g->sp;
 
+#ifdef SC_IOS
+    // system() is unavailable on iOS
+    SetInt(a, -1);
+    return errNone;
+#else
     char cmdline[1024];
     int err = slotStrVal(a, cmdline, 1023);
     if (err)
@@ -71,6 +76,7 @@ int prString_System(struct VMGlobals* g, int numArgsPushed) {
     SetInt(a, res);
 
     return errNone;
+#endif
 }
 
 int prString_Basename(struct VMGlobals* g, int numArgsPushed) {
@@ -149,8 +155,8 @@ int prString_POpen(struct VMGlobals* g, int numArgsPushed) {
     if (error != errNone)
         return error;
 
-#ifdef SC_IPHONE
-    SetInt(a, 0);
+#if defined(SC_IPHONE) || defined(SC_IOS)
+    SetInt(callerSlot, 0);
     return errNone;
 #endif
 
@@ -168,8 +174,8 @@ int prArrayPOpen(struct VMGlobals* g, int numArgsPushed) {
     PyrSlot* callerSlot = g->sp - 1;
     PyrSlot* postOutputSlot = g->sp;
 
-#ifdef SC_IPHONE
-    SetInt(a, 0);
+#if defined(SC_IPHONE) || defined(SC_IOS)
+    SetInt(callerSlot, 0);
     return errNone;
 #endif
 

@@ -89,10 +89,11 @@ set(sclang_sources
 )
 
 if(APPLE)
-	set_property(SOURCE ${CMAKE_SOURCE_DIR}/common/SC_Filesystem_macos.cpp PROPERTY COMPILE_FLAGS -xobjective-c++)
-
-	list(APPEND sclang_sources ${CMAKE_SOURCE_DIR}/common/SC_Apple.mm)
-	set_source_files_properties(${CMAKE_SOURCE_DIR}/common/SC_Apple.mm PROPERTIES COMPILE_FLAGS "-x objective-c++ -fobjc-exceptions")
+	if(NOT SC_IOS)
+		set_property(SOURCE ${CMAKE_SOURCE_DIR}/common/SC_Filesystem_macos.cpp PROPERTY COMPILE_FLAGS -xobjective-c++)
+		list(APPEND sclang_sources ${CMAKE_SOURCE_DIR}/common/SC_Apple.mm)
+		set_source_files_properties(${CMAKE_SOURCE_DIR}/common/SC_Apple.mm PROPERTIES COMPILE_FLAGS "-x objective-c++ -fobjc-exceptions")
+	endif()
 endif()
 
 file(GLOB_RECURSE headers ../include/*.h* )
@@ -285,12 +286,20 @@ endif(READLINE_FOUND)
 mark_as_advanced(READLINE_INCLUDE_DIR READLINE_LIBRARY)
 
 if (APPLE)
-	target_link_libraries(libsclang "-framework Carbon")
-	target_link_libraries(libsclang "-framework CoreAudio")
-	target_link_libraries(libsclang "-framework CoreMIDI")
-	target_link_libraries(libsclang "-framework CoreServices")
-	target_link_libraries(libsclang "-framework IOKit")
-	target_link_libraries(libsclang "-framework CoreFoundation")
+	if(SC_IOS)
+		target_compile_definitions(libsclang PUBLIC SC_IOS=1)
+		target_link_libraries(libsclang "-framework CoreMIDI")
+		target_link_libraries(libsclang "-framework CoreFoundation")
+		target_link_libraries(libsclang "-framework Foundation")
+		target_link_libraries(libsclang "-framework AudioToolbox")
+	else()
+		target_link_libraries(libsclang "-framework Carbon")
+		target_link_libraries(libsclang "-framework CoreAudio")
+		target_link_libraries(libsclang "-framework CoreMIDI")
+		target_link_libraries(libsclang "-framework CoreServices")
+		target_link_libraries(libsclang "-framework IOKit")
+		target_link_libraries(libsclang "-framework CoreFoundation")
+	endif()
 endif()
 
 if(ALSA_FOUND)
@@ -343,23 +352,28 @@ endif()
 
 target_link_libraries(libsclang ${YAMLCPP_LIBRARY})
 
+if(NOT SC_IOS)
 add_executable(sclang LangSource/cmdLineFuncs.cpp ${RES_FILES})
 target_link_libraries(sclang libsclang)
 target_link_libraries(sclang ${ICU_LIBRARIES})
 
 target_compile_definitions(sclang PUBLIC USE_SC_TERMINAL_CLIENT)
+endif()
 
 if(LTO)
-  set_property(TARGET sclang libsclang
-        APPEND PROPERTY COMPILE_FLAGS "-flto -flto-report")
+  if(NOT SC_IOS)
+    set_property(TARGET sclang libsclang
+          APPEND PROPERTY COMPILE_FLAGS "-flto -flto-report")
 
-  set_property(TARGET sclang
-        APPEND PROPERTY LINK_FLAGS "-flto -flto-report -fwhole-program")
+    set_property(TARGET sclang
+          APPEND PROPERTY LINK_FLAGS "-flto -flto-report -fwhole-program")
+  endif()
 
   set_property(TARGET libsclang
         APPEND PROPERTY LINK_FLAGS "-flto -flto-report")
 endif()
 
+if(NOT SC_IOS)
 if(APPLE)
     if(scappbindir)
         add_custom_command(TARGET sclang POST_BUILD
@@ -457,5 +471,6 @@ else()
         RUNTIME DESTINATION "bin"
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 endif()
+endif() # NOT SC_IOS
 
 set_property(TARGET libsclang PROPERTY FOLDER Libs)

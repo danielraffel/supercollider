@@ -18,7 +18,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
-#if defined(SC_AUDIO_API_COREAUDIO)
+#if defined(SC_AUDIO_API_COREAUDIO) && !defined(SC_IOS)
 #    include <CoreAudio/AudioHardware.h>
 #elif defined(SC_AUDIO_API_PORTAUDIO)
 #    include "portaudio.h"
@@ -33,7 +33,7 @@
 
 enum { OUT = 0, IN, BOTH };
 
-#if defined(SC_AUDIO_API_COREAUDIO)
+#if defined(SC_AUDIO_API_COREAUDIO) && !defined(SC_IOS)
 int listDevices(VMGlobals* g, int type) {
     int numDevices, num = 0;
     PyrSlot* a = g->sp - 2;
