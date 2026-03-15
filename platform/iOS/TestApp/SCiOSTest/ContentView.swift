@@ -39,6 +39,7 @@ struct ContentView: View {
     var iPhoneLayout: some View {
         TabView(selection: $selectedTab) {
             EditorView()
+                .toolbarBackground(.hidden, for: .tabBar)
                 .tabItem {
                     Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
@@ -50,21 +51,17 @@ struct ContentView: View {
                 }
                 .tag(1)
 
-            NavigationStack {
-                ServerView()
-            }
-            .tabItem {
-                Label("Server", systemImage: "server.rack")
-            }
-            .tag(2)
+            ServerView()
+                .tabItem {
+                    Label("Server", systemImage: "server.rack")
+                }
+                .tag(2)
 
-            NavigationStack {
-                FileBrowserView()
-            }
-            .tabItem {
-                Label("Files", systemImage: "folder")
-            }
-            .tag(3)
+            FileBrowserView()
+                .tabItem {
+                    Label("Files", systemImage: "folder")
+                }
+                .tag(3)
         }
     }
 }

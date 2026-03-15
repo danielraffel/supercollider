@@ -7,8 +7,6 @@ struct FileBrowserView: View {
     @State private var showNewFileAlert = false
     @State private var newFileName = ""
     @State private var showImporter = false
-    @State private var showShareSheet = false
-    @State private var shareURL: URL?
 
     var body: some View {
         List {
@@ -43,13 +41,19 @@ struct FileBrowserView: View {
                         Button {
                             openFile(file)
                         } label: {
-                            Text(file.name)
+                            HStack {
+                                Text(file.name)
+                                Spacer()
+                                if file.path == app.currentFile {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        .navigationTitle("Files")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {

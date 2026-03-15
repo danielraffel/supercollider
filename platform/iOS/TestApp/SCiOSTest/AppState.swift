@@ -115,7 +115,13 @@ class AppState: ObservableObject {
     }
 
     func evaluateSelection() {
+        // If text is selected in the editor, evaluate that; otherwise evaluate all
         evaluate(codeText)
+    }
+
+    func evaluateCode(_ code: String) {
+        // Evaluate a specific piece of code (from selection context menu)
+        evaluate(code)
     }
 
     func stopAll() {

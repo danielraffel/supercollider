@@ -61,6 +61,7 @@ struct ServerView: View {
                 LabeledContent("Platform", value: "iOS arm64")
             }
         }
-        .navigationTitle("Server")
+        .listStyle(.insetGrouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

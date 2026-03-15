@@ -6,7 +6,6 @@ struct PostView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 Text("Post")
                     .font(.headline)
@@ -22,7 +21,6 @@ struct PostView: View {
 
             Divider()
 
-            // Output - fills remaining space
             ScrollViewReader { proxy in
                 ScrollView {
                     Text(app.postOutput.isEmpty ? "Ready." : app.postOutput)
@@ -32,14 +30,16 @@ struct PostView: View {
                         .padding(8)
                         .id("postBottom")
                 }
-                .frame(maxHeight: .infinity)
+                .layoutPriority(1)
+                .background(Color(.secondarySystemBackground))
                 .onChange(of: app.postOutput) { _ in
                     withAnimation(.easeOut(duration: 0.1)) {
                         proxy.scrollTo("postBottom", anchor: .bottom)
                     }
                 }
             }
-            .background(Color(.secondarySystemBackground))
         }
+        .background(Color(.secondarySystemBackground))
+        .edgesIgnoringSafeArea(.bottom)
     }
 }
