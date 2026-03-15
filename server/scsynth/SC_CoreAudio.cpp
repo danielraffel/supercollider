@@ -2243,6 +2243,10 @@ void SC_iCoreAudioDriver::Run(const AudioBufferList* inInputData, AudioBufferLis
                         if (outputTouched[b] == bufCounter) {
                             for (int k = 0; k < bufFrames; ++k)
                                 bufdata[k] = busdata[k];
+                        } else {
+                            // Bus not written — zero the output to avoid stale audio
+                            for (int k = 0; k < bufFrames; ++k)
+                                bufdata[k] = 0.f;
                         }
                     } else {
                         int minchan = sc_min(nchan, numOutputBuses - b);
@@ -2250,6 +2254,10 @@ void SC_iCoreAudioDriver::Run(const AudioBufferList* inInputData, AudioBufferLis
                             if (outputTouched[b + j] == bufCounter) {
                                 for (int k = 0, m = j; k < bufFrames; ++k, m += nchan)
                                     bufdata[m] = busdata[k];
+                            } else {
+                                // Bus not written — zero the output
+                                for (int k = 0, m = j; k < bufFrames; ++k, m += nchan)
+                                    bufdata[m] = 0.f;
                             }
                         }
                     }
