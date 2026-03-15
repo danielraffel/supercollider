@@ -40,6 +40,5 @@ struct PostView: View {
             }
         }
         .background(Color(.secondarySystemBackground))
-        .edgesIgnoringSafeArea(.bottom)
     }
 }

@@ -63,8 +63,7 @@ struct CodeTextView: UIViewRepresentable {
         textView.smartInsertDeleteType = .no
         textView.keyboardDismissMode = .interactive
         textView.alwaysBounceVertical = true
-        // Extra bottom padding so content doesn't hide behind tab bar
-        textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 80, right: 4)
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 16, right: 4)
 
         // Make it fill available space
         textView.setContentHuggingPriority(.defaultLow, for: .vertical)

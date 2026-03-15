@@ -9,21 +9,11 @@ struct SCiOSTestApp: App {
             ContentView()
                 .environmentObject(appState)
                 .onAppear {
-                    bootSystem()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        appState.bootSystem()
+                    }
                 }
                 .preferredColorScheme(.dark)
-        }
-    }
-
-    private func bootSystem() {
-        // Boot scsynth
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            let _ = appState.bootServer()
-
-            // Init sclang after server boots
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                let _ = appState.initSclang()
-            }
         }
     }
 }

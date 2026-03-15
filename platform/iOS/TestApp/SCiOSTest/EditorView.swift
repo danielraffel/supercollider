@@ -18,7 +18,6 @@ struct EditorView: View {
             .layoutPriority(1)
         }
         .background(Color.black)
-        .edgesIgnoringSafeArea(.bottom)
         .onAppear {
             scEvaluateCallback = { [weak app] code in
                 app?.evaluateCode(code)

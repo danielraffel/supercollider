@@ -4,6 +4,15 @@ struct ContentView: View {
     @EnvironmentObject var app: AppState
     @State private var selectedTab = 0
 
+    init() {
+        // Make tab bar opaque so content doesn't bleed through
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor.black
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     var body: some View {
         Group {
             if UIDevice.current.userInterfaceIdiom == .pad {
@@ -39,7 +48,6 @@ struct ContentView: View {
     var iPhoneLayout: some View {
         TabView(selection: $selectedTab) {
             EditorView()
-                .toolbarBackground(.hidden, for: .tabBar)
                 .tabItem {
                     Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
