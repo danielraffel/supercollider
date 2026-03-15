@@ -43,12 +43,12 @@ class SCCodeTextView: UITextView {
         scStopCallback?()
     }
 
-    /// Returns selected text, or all text if nothing selected
-    func getSelectedOrAllText() -> String {
+    /// Returns selected text, or empty string if nothing selected
+    func getSelectedText() -> String {
         if let range = selectedTextRange, !range.isEmpty {
-            return text(in: range) ?? text ?? ""
+            return text(in: range) ?? ""
         }
-        return text ?? ""
+        return ""  // Nothing selected
     }
 }
 
@@ -76,7 +76,7 @@ struct CodeTextView: UIViewRepresentable {
 
         // Wire up the get-selected-text closure
         scGetSelectedText = { [weak textView] in
-            textView?.getSelectedOrAllText() ?? ""
+            textView?.getSelectedText() ?? ""
         }
 
         return textView
@@ -89,7 +89,7 @@ struct CodeTextView: UIViewRepresentable {
         scStopCallback = context.coordinator.stopAll
 
         scGetSelectedText = { [weak textView] in
-            textView?.getSelectedOrAllText() ?? ""
+            textView?.getSelectedText() ?? ""
         }
 
         if textView.text != text {
