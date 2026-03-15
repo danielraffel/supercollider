@@ -58,6 +58,22 @@ echo ""
 echo "Device lib: $DEVICE_LIB"
 echo "Sim lib: $SIM_LIB"
 
+# Merge tlsf into libscsynth for each slice
+DEVICE_TLSF=$(find "$BUILD_DIR/device" -name "libtlsf.a" -path "*/Release-iphoneos/*" | head -1)
+SIM_TLSF=$(find "$BUILD_DIR/sim" -name "libtlsf.a" -path "*/Release-iphonesimulator/*" | head -1)
+
+if [ -n "$DEVICE_TLSF" ]; then
+    echo "Merging tlsf into device libscsynth..."
+    libtool -static -o "${DEVICE_LIB}.merged" "$DEVICE_LIB" "$DEVICE_TLSF"
+    mv "${DEVICE_LIB}.merged" "$DEVICE_LIB"
+fi
+
+if [ -n "$SIM_TLSF" ]; then
+    echo "Merging tlsf into simulator libscsynth..."
+    libtool -static -o "${SIM_LIB}.merged" "$SIM_LIB" "$SIM_TLSF"
+    mv "${SIM_LIB}.merged" "$SIM_LIB"
+fi
+
 # Stage headers
 HEADERS_DIR="$BUILD_DIR/headers"
 mkdir -p "$HEADERS_DIR"

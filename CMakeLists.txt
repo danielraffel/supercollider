@@ -105,6 +105,9 @@ if(SC_IOS)
     # Static plugins for iOS (no dlopen)
     set(SC_STATIC_PLUGINS ON CACHE BOOL "Build plugins as static objects" FORCE)
 
+    # Disable libsndfile for iOS (no iOS-compatible build available)
+    set(NO_LIBSNDFILE ON CACHE BOOL "" FORCE)
+
     message(STATUS "SuperCollider iOS build: server-only, static library, static plugins")
 endif()
 

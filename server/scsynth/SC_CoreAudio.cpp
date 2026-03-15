@@ -1945,7 +1945,13 @@ static OSStatus iOSRenderCallback(void* inRefCon, AudioUnitRenderActionFlags* io
 
     // Get input if available
     AudioBufferList* inputData = nullptr;
-    if (driver->mInputEnabled && driver->mAudioUnit) {
+    if (driver->mInputEnabled && driver->mAudioUnit && driver->mInputBufferList) {
+        // Update buffer sizes to match the actual callback frame count
+        UInt32 bytesNeeded = inNumberFrames * sizeof(Float32);
+        for (UInt32 i = 0; i < driver->mInputBufferList->mNumberBuffers; i++) {
+            driver->mInputBufferList->mBuffers[i].mDataByteSize = bytesNeeded;
+        }
+
         OSStatus err = AudioUnitRender(driver->mAudioUnit, ioActionFlags, inTimeStamp,
                                         1, // input bus
                                         inNumberFrames, driver->mInputBufferList);
@@ -2067,17 +2073,18 @@ bool SC_iCoreAudioDriver::DriverSetup(int* outNumSamplesPerCallback, double* out
         }
     }
 
-    // Allocate input buffer list
+    // Allocate input buffer list with generous size for varying callback lengths
     mInputBufferList = nullptr;
     if (mInputEnabled) {
         int inputChans = runtimeCfg.inputChannels > 0 ? runtimeCfg.inputChannels : 1;
+        int maxFrames = 4096; // generous max for any callback size
         size_t bufListSize = sizeof(AudioBufferList) + (inputChans - 1) * sizeof(AudioBuffer);
         mInputBufferList = (AudioBufferList*)calloc(1, bufListSize);
         mInputBufferList->mNumberBuffers = inputChans;
         for (int i = 0; i < inputChans; i++) {
             mInputBufferList->mBuffers[i].mNumberChannels = 1;
-            mInputBufferList->mBuffers[i].mDataByteSize = runtimeCfg.actualBufferSize * sizeof(Float32);
-            mInputBufferList->mBuffers[i].mData = calloc(runtimeCfg.actualBufferSize, sizeof(Float32));
+            mInputBufferList->mBuffers[i].mDataByteSize = maxFrames * sizeof(Float32);
+            mInputBufferList->mBuffers[i].mData = calloc(maxFrames, sizeof(Float32));
         }
     }
 

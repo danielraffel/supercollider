@@ -1,0 +1,41 @@
+name: SCiOSTest
+options:
+  bundleIdPrefix: com.supercollider
+  deploymentTarget:
+    iOS: "16.0"
+
+settings:
+  base:
+    SWIFT_OBJC_BRIDGING_HEADER: SCiOSTest/SC_iOSLibSynth-Bridging-Header.h
+    CLANG_CXX_LANGUAGE_STANDARD: c++17
+
+targets:
+  SCiOSTest:
+    type: application
+    platform: iOS
+    sources:
+      - path: SCiOSTest
+        excludes:
+          - "*.plist"
+    info:
+      path: SCiOSTest/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.supercollider.sciostest
+        HEADER_SEARCH_PATHS:
+          - $(PROJECT_DIR)/../../../server/scsynth
+          - $(PROJECT_DIR)/../../../include/plugin_interface
+          - $(PROJECT_DIR)/../../../include/common
+          - $(PROJECT_DIR)/../../../include/server
+        OTHER_LDFLAGS:
+          - -lstdc++
+          - -lc++
+    dependencies:
+      - framework: ../../../build-xcframework/output/SuperCollider.xcframework
+        embed: false
+      - sdk: Accelerate.framework
+      - sdk: AudioToolbox.framework
+      - sdk: AVFoundation.framework
+      - sdk: CoreAudio.framework
+      - sdk: CoreMIDI.framework
+      - sdk: Foundation.framework
