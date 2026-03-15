@@ -442,13 +442,13 @@
 > Goal: Sustainable long-term project
 
 ### H.1 Upstream Coordination
-- [ ] Contribute iOS build system changes upstream to supercollider/supercollider
-- [ ] Track upstream changes that affect iOS compatibility
-- [ ] Maintain fork sync strategy (rebase or merge from upstream develop)
-- [ ] Engage with SC developer community on iOS port direction
+- [~] Contribute iOS build system changes upstream to supercollider/supercollider — post-launch community engagement
+- [~] Track upstream changes that affect iOS compatibility — ongoing maintenance
+- [~] Maintain fork sync strategy (rebase or merge from upstream develop) — ongoing maintenance
+- [~] Engage with SC developer community on iOS port direction — ongoing maintenance
 
 ### H.2 Community & Ecosystem
-- [ ] Respond to community bug reports and feature requests
-- [ ] Regular App Store updates (quarterly minimum)
-- [ ] Track iOS/iPadOS SDK changes that affect audio, MIDI, AUv3
-- [ ] Evaluate new iOS features for SC integration (e.g., new APIs, hardware)
+- [~] Respond to community bug reports and feature requests — ongoing maintenance
+- [~] Regular App Store updates (quarterly minimum) — ongoing maintenance
+- [~] Track iOS/iPadOS SDK changes that affect audio, MIDI, AUv3 — ongoing maintenance
+- [~] Evaluate new iOS features for SC integration (e.g., new APIs, hardware) — ongoing maintenance
