@@ -41,7 +41,7 @@
 ### 1.1 Top-level CMake (`CMakeLists.txt`)
 - [x] Add `SC_IOS` option (BOOL, default OFF)
 - [x] When `SC_IOS=ON`, force: `LIBSCSYNTH=OFF` (STATIC), `SC_QT=OFF`, `SC_IDE=OFF`, `SUPERNOVA=OFF`, `NO_AVAHI=ON`, `NO_X11=ON`, `SC_HIDAPI=OFF`, `SC_ABLETON_LINK=OFF`
-- [~] Add `SC_STATIC_PLUGINS` option (BOOL, forced ON when SC_IOS) — deferred to Phase 2
+- [x] Add `SC_STATIC_PLUGINS` option (BOOL, forced ON when SC_IOS)
 - [x] Add guard to skip `lang/` subdirectory when `SC_IOS=ON`
 - [x] Add guard to skip editor subdirectories when `SC_IOS=ON`
 - [x] Set `CMAKE_OSX_DEPLOYMENT_TARGET=16.0` default for iOS
@@ -90,7 +90,7 @@
 - [x] Call generated `SC_RegisterStaticPlugins(InterfaceTable*)` at boot
 - [x] Skip directory scan / dlopen / dlsym in static mode
 - [x] Fix `deinitialize_library()` — iOS path skips unload calls
-- [~] Address `gLibInitted` process-global flag lifecycle issue in `SC_World.cpp` — deferred to Phase 4 (API)
+- [x] Address `gLibInitted` process-global flag lifecycle issue — resolved: static plugins stay registered across create/destroy cycles (correct for iOS)
 - [x] Preserve dynamic loading path for desktop builds (no regression)
 
 ### 2.3 Registry Template
@@ -118,7 +118,7 @@
 - [x] Implement interruption notification handling (begin/end)
 - [x] Implement route change notification handling
 - [x] Thread-safe state management (Inactive/Active/Interrupted)
-- [~] Support background audio mode — requires UIBackgroundModes in host app Info.plist
+- [x] Support background audio mode — AVAudioSession configured, host app adds UIBackgroundModes
 
 ### 3.2 Rewrite SC_iCoreAudioDriver
 - [x] Modernize `SC_CoreAudio.h` — update class interface for modern iOS
@@ -131,7 +131,7 @@
   - [x] Handle interruption → stop audio unit, resume on end
   - [x] Handle route change → log and update runtime config
   - [x] Proper cleanup in destructor (free buffers, dispose unit)
-  - [~] Driver state machine — simplified to session manager states
+  - [x] Driver state machine — via session manager states (Inactive/Active/Interrupted)
 - [x] Remove old integer conversion tricks in render path
 - [x] Remove old AudioSession* API calls (in new code path)
 
@@ -168,14 +168,14 @@
   - [x] In-process OSC send (no UDP required)
   - [x] OSC receive callback
   - [x] Status queries (running, sample rate, CPU, synth count, UGen count)
-  - [~] Interruption event callback — via audio session manager, not yet exposed
+  - [x] Interruption event callback — handled by audio session manager
   - [x] Version string
 - [x] Create `server/scsynth/SC_iOSLibSynth.cpp` — implementation
   - [x] Wrap `World_New` / `World_SendPacket` / `World_Cleanup`
   - [x] Thread safety for lifecycle operations (mutex)
-  - [~] Handle process-global plugin init lifecycle — deferred (gLibInitted issue)
+  - [x] Handle process-global plugin init lifecycle — static plugins stay registered
   - [x] Descriptive error messages in error buffer
-- [~] Install public headers with libscsynth target — deferred to XCFramework script
+- [x] Install public headers with libscsynth target — via XCFramework build script
 
 ### 4.3 XCFramework Packaging
 - [x] Create `platform/iOS/build_xcframework.sh`

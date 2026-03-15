@@ -102,8 +102,14 @@ if(SC_IOS)
         set(CMAKE_OSX_DEPLOYMENT_TARGET "16.0")
     endif()
 
+    # Static plugins for iOS (no dlopen)
+    set(SC_STATIC_PLUGINS ON CACHE BOOL "Build plugins as static objects" FORCE)
+
     message(STATUS "SuperCollider iOS build: server-only, static library, static plugins")
 endif()
+
+# SC_STATIC_PLUGINS can also be set independently of SC_IOS
+option(SC_STATIC_PLUGINS "Build plugins as static objects linked into libscsynth" OFF)
 
 option(NOVA_SIMD "Build with nova-simd support." ON)
 option(FINAL_BUILD "Build as single source file." OFF)
