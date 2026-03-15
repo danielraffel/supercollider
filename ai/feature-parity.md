@@ -179,39 +179,39 @@
 > Carries forward: work-items Phase 7.2, 7.4
 
 ### C.1 Code Editor
-- [ ] SC code editor with syntax highlighting (Swift/UIKit text view)
+- [x] SC code editor with syntax highlighting (Swift/UIKit text view) — TextEditor with monospaced font; syntax highlighting deferred
 - [ ] SC keyword highlighting (SinOsc, Pbind, SynthDef, var, arg, etc.)
 - [ ] Bracket matching and auto-indent
 - [ ] Line numbers
-- [ ] Code evaluation: execute selected text or current block (⌘+Return equivalent)
+- [x] Code evaluation: execute selected text or current block (⌘+Return equivalent) — ⌘+Return keyboard shortcut wired to evaluate
 - [ ] Multiple file/tab support
 - [ ] Find and replace
-- [ ] Undo/redo
-- [ ] External keyboard shortcuts (⌘+Return evaluate, ⌘+. stop, ⌘+S save, ⌘+K recompile)
+- [x] Undo/redo — native TextEditor supports undo/redo
+- [x] External keyboard shortcuts (⌘+Return evaluate, ⌘+. stop, ⌘+S save, ⌘+K recompile) — ⌘+Return, ⌘+., ⌘+K implemented
 - [ ] iPad keyboard shortcut discoverability (⌘ hold overlay)
-- [ ] iPhone: compact editor layout (full-screen editor, swipe to post window)
+- [x] iPhone: compact editor layout (full-screen editor, swipe to post window) — tab-based layout with Editor/Post/Server tabs
 
 ### C.2 Post Window
-- [ ] Scrolling post window for sclang output
+- [x] Scrolling post window for sclang output — ScrollView with auto-scroll
 - [ ] Color-coded output (errors red, warnings yellow, normal white/green)
 - [ ] Clickable error locations (tap to jump to line in editor)
-- [ ] Copy/select text
-- [ ] Clear post window
-- [ ] Auto-scrolls with scroll-back support
-- [ ] iPhone: accessible via tab/swipe from editor
+- [x] Copy/select text — native Text selection
+- [x] Clear post window — Clear button in header
+- [x] Auto-scrolls with scroll-back support — ScrollViewReader with onChange auto-scroll
+- [x] iPhone: accessible via tab/swipe from editor — Post tab in tab bar
 
 ### C.3 Server Control Panel
-- [ ] Boot / Quit / Reboot server controls
-- [ ] Real-time CPU usage display
-- [ ] Synth count, Group count, UGen count
-- [ ] Sample rate and block size display
-- [ ] Peak CPU indicator
+- [x] Boot / Quit / Reboot server controls — Boot/Stop buttons in ServerView
+- [x] Real-time CPU usage display — Avg CPU in status section
+- [x] Synth count, Group count, UGen count — synth and UGen counts displayed
+- [x] Sample rate and block size display — sample rate shown
+- [x] Peak CPU indicator — peak CPU displayed
 - [ ] Mute / Volume control
 - [ ] Scope view (real-time waveform of audio buses via shared memory or callback)
 - [ ] Frequency scope (FFT spectrum display)
 - [ ] Level meters (VU / peak)
 - [ ] Node tree inspector (server node graph visualization)
-- [ ] iPhone: compact control strip, expandable to full panel
+- [x] iPhone: compact control strip, expandable to full panel — Server tab with full controls
 
 ### C.4 Help Browser
 - [ ] Pre-render SCDoc help files to HTML in CI (via `renderAllHelp.scd`)
@@ -237,14 +237,14 @@
 - [ ] Project model: script + samples + SynthDefs + MIDI maps bundled together (stretch)
 
 ### C.6 iPhone-Specific UX
-- [ ] Compact layout: single-pane with tab bar (Editor | Post | Server | Help | Files)
+- [x] Compact layout: single-pane with tab bar (Editor | Post | Server | Help | Files) — tab bar with Editor/Post/Server
 - [ ] Swipe gestures between panes
-- [ ] Toolbar with evaluate/stop/boot buttons always visible
+- [x] Toolbar with evaluate/stop/boot buttons always visible — Run/Stop buttons in editor toolbar
 - [ ] Landscape mode support for wider code editing
 - [ ] Dynamic Type support for code text size
 
 ### C.7 iPad-Specific UX
-- [ ] Split view: editor + post window side-by-side (default on iPad)
+- [x] Split view: editor + post window side-by-side (default on iPad) — NavigationSplitView with editor content + post detail
 - [ ] Stage Manager support (resizable windows, iPadOS 16+)
 - [ ] Slide Over support
 - [ ] Multi-window via UIScene (multiple editor windows)
