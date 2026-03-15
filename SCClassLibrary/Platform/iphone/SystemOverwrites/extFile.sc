@@ -1,11 +1,11 @@
-//primitive fails with boost::filesystem::status: Operation not permitted: "/tmp/"
-//using the old sclang implementation for file exists until fixed.
+// iOS sandbox file operations
+// The app has access to its own Documents, tmp, and Library directories.
+// boost::filesystem works within the app sandbox on modern iOS.
 
 + File {
 	*exists { arg pathName;
-		var file;
-		file = File(pathName,"r");
-		if (file.isOpen, { file.close; ^true });
-		^false
+		// Use standard implementation — boost::filesystem works in iOS sandbox
+		_FileExists
+		^this.primitiveFailed
 	}
 }

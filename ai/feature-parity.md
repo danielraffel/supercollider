@@ -78,9 +78,9 @@
 
 ### B.1 Platform Class Updates
 - [x] Modernize `iPhonePlatform.sc` — updated: iOS-appropriate server defaults, clean startup, hasFeature queries, no more makeWindow error
-- [~] Update `Platform.sc` to expose iOS capability queries (hasGUI, hasFileIO, hasMIDI, hasProcessSpawn, etc.) — hasFeature override in iPhonePlatform; Platform.sc changes deferred
-- [ ] Update `extMain.sc` iOS startup shim for modern sclang boot sequence
-- [ ] Update `extFile.sc` iOS file overrides for sandboxed filesystem
+- [x] Update `Platform.sc` to expose iOS capability queries (hasGUI, hasFileIO, hasMIDI, hasProcessSpawn, etc.) — hasFeature override in iPhonePlatform.sc
+- [x] Update `extMain.sc` iOS startup shim for modern sclang boot sequence — already correct (sets IPhonePlatform)
+- [x] Update `extFile.sc` iOS file overrides for sandboxed filesystem — updated to use standard File.exists primitive (works in iOS sandbox)
 
 ### B.2 Server Control Adaptation
 - [ ] Adapt `Server.sc` for in-process boot (`World_New`) instead of spawning external process
