@@ -119,6 +119,7 @@ elseif(SC_IOS)
 	# Add iOS-specific sources
 	list(APPEND scsynth_sources
 		SC_iOSAudioSession.mm
+		SC_iOSLibSynth.cpp
 	)
 	set_source_files_properties(SC_iOSAudioSession.mm
 		PROPERTIES COMPILE_FLAGS "-x objective-c++ -fobjc-arc"

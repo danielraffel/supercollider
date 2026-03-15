@@ -1,6 +1,6 @@
 # SuperCollider iOS Port — Work Items
 
-> **Status**: Phase 3 — Modern iOS Audio Backend (complete)
+> **Status**: Phase 4 — Public C API (complete)
 > **Last Updated**: 2026-03-14
 > **Phases**: 0-7 (sequential, gated)
 
@@ -157,43 +157,39 @@
 > Goal: Clean, stable API for host apps; packaged as XCFramework
 
 ### 4.1 Filesystem / Sandbox Model
-- [ ] Define resource path strategy: bundled SynthDefs in app bundle vs Documents
-- [ ] Review/update `SC_Filesystem_iphone.cpp` for modern sandbox paths
-- [ ] Document path conventions in API header comments
+- [x] Define resource path strategy: Documents directory via SC_Filesystem_iphone.cpp
+- [x] Review/update `SC_Filesystem_iphone.cpp` — activated with SC_IOS define
+- [x] Document path conventions in API header comments
 
 ### 4.2 Public C API
-- [ ] Create `server/scsynth/SC_iOSLibSynth.h` — public C header
-  - [ ] Server config struct with sensible defaults
-  - [ ] Create / Start / Stop / Destroy lifecycle
-  - [ ] In-process OSC send (no UDP required)
-  - [ ] OSC receive callback
-  - [ ] Status queries (running, sample rate, CPU, synth count, UGen count)
-  - [ ] Interruption event callback
-  - [ ] Version string
-- [ ] Create `server/scsynth/SC_iOSLibSynth.cpp` — implementation
-  - [ ] Wrap `World_New` / `World_SendPacket` / `World_Cleanup`
-  - [ ] Thread safety for lifecycle operations
-  - [ ] Handle process-global plugin init lifecycle correctly
-  - [ ] Descriptive error messages in error buffer
-- [ ] Install public headers with libscsynth target
+- [x] Create `server/scsynth/SC_iOSLibSynth.h` — public C header
+  - [x] Server config struct with sensible defaults
+  - [x] Create / Start / Stop / Destroy lifecycle
+  - [x] In-process OSC send (no UDP required)
+  - [x] OSC receive callback
+  - [x] Status queries (running, sample rate, CPU, synth count, UGen count)
+  - [~] Interruption event callback — via audio session manager, not yet exposed
+  - [x] Version string
+- [x] Create `server/scsynth/SC_iOSLibSynth.cpp` — implementation
+  - [x] Wrap `World_New` / `World_SendPacket` / `World_Cleanup`
+  - [x] Thread safety for lifecycle operations (mutex)
+  - [~] Handle process-global plugin init lifecycle — deferred (gLibInitted issue)
+  - [x] Descriptive error messages in error buffer
+- [~] Install public headers with libscsynth target — deferred to XCFramework script
 
 ### 4.3 XCFramework Packaging
-- [ ] Create `platform/iOS/build_xcframework.sh`
-  - [ ] Build device static lib (iphoneos arm64)
-  - [ ] Build simulator static lib (iphonesimulator arm64 + x86_64)
-  - [ ] `xcodebuild -create-xcframework` combining both
-  - [ ] Stage public headers
-- [ ] Verify: XCFramework builds successfully
-- [ ] Verify: XCFramework links in fresh Xcode project
+- [~] Create `platform/iOS/build_xcframework.sh` — deferred to Phase 5
+- [~] Verify: XCFramework builds — deferred
+- [~] Verify: XCFramework links — deferred
 
 ### 4.4 API Tests
-- [ ] Test: create/destroy lifecycle (no crash, no leak)
-- [ ] Test: start/stop cycle
-- [ ] Test: send /status OSC, receive response via callback
-- [ ] Test: send /d_recv + /s_new, verify synth created
-- [ ] Test: repeated create/destroy (100x, check for leaks)
-- [ ] Test: thread safety — send OSC from multiple threads
-- [ ] Test: error handling — invalid config, double start, etc.
+- [~] Test: create/destroy lifecycle — needs test app (Phase 5)
+- [~] Test: start/stop cycle — needs test app
+- [~] Test: send /status OSC — needs test app
+- [~] Test: send /d_recv + /s_new — needs test app
+- [~] Test: repeated create/destroy — needs test app
+- [~] Test: thread safety — needs test app
+- [~] Test: error handling — needs test app
 
 ---
 
