@@ -179,8 +179,8 @@
 
 ### 4.3 XCFramework Packaging
 - [x] Create `platform/iOS/build_xcframework.sh`
-- [~] Verify: XCFramework builds — needs Xcode generator test
-- [~] Verify: XCFramework links — needs test project
+- [x] Verify: XCFramework builds (device arm64 + simulator arm64)
+- [~] Verify: XCFramework links in fresh Xcode project — needs test app
 
 ### 4.4 API Tests
 - [~] Test: create/destroy lifecycle — needs test app (Phase 5)
