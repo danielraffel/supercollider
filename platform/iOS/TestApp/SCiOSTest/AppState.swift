@@ -12,7 +12,7 @@ class AppState: ObservableObject {
     @Published var numUGens: Int = 0
     @Published var postOutput = ""
     @Published var currentFile: String? = nil
-    @Published var codeText = "// SuperCollider for iOS\n// Select code, then tap Evaluate\n\n{ SinOsc.ar(440, 0, 0.3) }.play;\n"
+    @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
 
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?
@@ -151,15 +151,8 @@ class AppState: ObservableObject {
     }
 
     func evaluateSelection() {
-        // Evaluate SELECTED text only — never the whole multi-block file
-        if let getText = scGetSelectedText {
-            let selected = getText()
-            if !selected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                evaluate(selected)
-                return
-            }
-        }
-        appendPost("⚠ Select code first, then tap Evaluate in the popup menu\n")
+        // Evaluate entire editor content
+        evaluate(codeText)
     }
 
     func evaluateCode(_ code: String) {
@@ -167,16 +160,9 @@ class AppState: ObservableObject {
     }
 
     func stopAll() {
-        // Free all synths via C API OSC (reliable, direct to World)
-        let _ = sendOSC(OSCMessage.build("/g_deepFree", [Int32(0)]))
-        // Recreate default group
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            let _ = self?.sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
-        }
-        // Clean up sclang-side state
-        if sclangReady {
-            let _ = sclang.interpret("CmdPeriod.run;")
-        }
+        // Free ALL synths via C API — direct to World, no sclang involvement
+        // /g_freeAll on group 1 frees all children (synths) of the default group
+        let _ = sendOSC(OSCMessage.build("/g_freeAll", [Int32(1)]))
         appendPost("⏹ stopped\n")
     }
 
