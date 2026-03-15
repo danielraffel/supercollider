@@ -1,6 +1,6 @@
 # SuperCollider iOS Port — Work Items
 
-> **Status**: Phase 4 — Public C API (complete)
+> **Status**: Phase 5 — Test App & Validation (in progress)
 > **Last Updated**: 2026-03-14
 > **Phases**: 0-7 (sequential, gated)
 
@@ -178,9 +178,9 @@
 - [~] Install public headers with libscsynth target — deferred to XCFramework script
 
 ### 4.3 XCFramework Packaging
-- [~] Create `platform/iOS/build_xcframework.sh` — deferred to Phase 5
-- [~] Verify: XCFramework builds — deferred
-- [~] Verify: XCFramework links — deferred
+- [x] Create `platform/iOS/build_xcframework.sh`
+- [~] Verify: XCFramework builds — needs Xcode generator test
+- [~] Verify: XCFramework links — needs test project
 
 ### 4.4 API Tests
 - [~] Test: create/destroy lifecycle — needs test app (Phase 5)
@@ -197,9 +197,10 @@
 > Goal: Working iOS app validates entire stack on real devices
 
 ### 5.1 SynthDef Asset Pipeline
-- [ ] Create `platform/iOS/synthdefs/compile_synthdefs.scd` (desktop sclang script)
-- [ ] Compile core SynthDefs: sine, ping, fm, noise, filter, playbuf, soundin
-- [ ] Bundle `.scsyndef` files as app resources
+- [x] Create `platform/iOS/synthdefs/compile_synthdefs.scd` (desktop sclang script)
+- [x] Define core SynthDefs: sine, ping, fm, noise, filter, playbuf, soundin
+- [~] Compile `.scsyndef` files — requires desktop sclang execution
+- [~] Bundle `.scsyndef` files as app resources — needs test app
 
 ### 5.2 iOS Test App (Swift + SwiftUI)
 - [ ] Create `platform/iOS/TestApp/` Xcode project
