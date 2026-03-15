@@ -203,17 +203,18 @@
 - [~] Bundle `.scsyndef` files as app resources — needs test app
 
 ### 5.2 iOS Test App (Swift + SwiftUI)
-- [ ] Create `platform/iOS/TestApp/` Xcode project
-- [ ] Link SuperCollider.xcframework
-- [ ] Boot scsynth via C API on app launch
-- [ ] Display server status dashboard (CPU, UGens, synths, sample rate)
-- [ ] Sine wave with frequency slider
-- [ ] Polyphonic keyboard (trigger ping SynthDef)
-- [ ] Sample playback from buffer (load + PlayBuf)
-- [ ] Mic input processing (SoundIn → reverb → out)
-- [ ] Handle app lifecycle (background, foreground, interruption)
-- [ ] Add `NSMicrophoneUsageDescription` to Info.plist
-- [ ] Add `UIBackgroundModes: audio` to Info.plist
+- [x] Create `platform/iOS/TestApp/` source files (Swift + SwiftUI)
+- [~] Create Xcode project — source files ready, needs .xcodeproj
+- [~] Link SuperCollider.xcframework — needs Xcode project
+- [x] Boot scsynth via C API on app launch (SCEngine.swift)
+- [x] Display server status dashboard (CPU, UGens, synths, sample rate)
+- [x] Sine wave with frequency slider (ContentView.swift — UI ready, OSC needs work)
+- [~] Polyphonic keyboard (trigger ping SynthDef) — needs OSC implementation
+- [~] Sample playback from buffer (load + PlayBuf) — needs OSC implementation
+- [~] Mic input processing (SoundIn → reverb → out) — needs OSC implementation
+- [~] Handle app lifecycle (background, foreground, interruption) — AVAudioSession handles it
+- [x] Add `NSMicrophoneUsageDescription` to Info.plist
+- [x] Add `UIBackgroundModes: audio` to Info.plist
 
 ### 5.3 Comprehensive Device Tests (XCTest)
 - [ ] Test: server boots on real device
