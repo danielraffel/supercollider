@@ -8,7 +8,7 @@ struct PostView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Post Window")
+                Text("Post")
                     .font(.headline)
                 Spacer()
                 Button("Clear") {
@@ -17,22 +17,22 @@ struct PostView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color(.systemBackground).opacity(0.95))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
 
             Divider()
 
-            // Output
+            // Output - fills remaining space
             ScrollViewReader { proxy in
                 ScrollView {
                     Text(app.postOutput.isEmpty ? "Ready." : app.postOutput)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(Color(.label))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(8)
                         .id("postBottom")
                 }
+                .frame(maxHeight: .infinity)
                 .onChange(of: app.postOutput) { _ in
                     withAnimation(.easeOut(duration: 0.1)) {
                         proxy.scrollTo("postBottom", anchor: .bottom)

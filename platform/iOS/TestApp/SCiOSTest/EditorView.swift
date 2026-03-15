@@ -3,45 +3,46 @@ import SwiftUI
 /// SC code editor with monospaced font and evaluation support
 struct EditorView: View {
     @EnvironmentObject var app: AppState
-    @FocusState private var editorFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             // Toolbar
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Button(action: { app.evaluateSelection() }) {
-                    Label("Run", systemImage: "play.fill")
+                    Image(systemName: "play.fill")
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(Color.green)
+                        .clipShape(Circle())
                 }
                 .keyboardShortcut(.return, modifiers: .command)
-                .buttonStyle(.bordered)
-                .tint(.green)
 
                 Button(action: { app.stopAll() }) {
-                    Label("Stop", systemImage: "stop.fill")
+                    Image(systemName: "stop.fill")
+                        .foregroundColor(.white)
+                        .frame(width: 36, height: 36)
+                        .background(Color.red.opacity(0.8))
+                        .clipShape(Circle())
                 }
                 .keyboardShortcut(".", modifiers: .command)
-                .buttonStyle(.bordered)
-                .tint(.red)
 
                 Spacer()
 
-                // Server status indicator
+                // Server status
                 HStack(spacing: 4) {
                     Circle()
                         .fill(app.serverRunning ? Color.green : Color.red)
                         .frame(width: 8, height: 8)
                     Text(app.serverRunning ? "\(Int(app.avgCPU))%" : "off")
-                        .font(.caption.monospacedDigit())
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(.secondary)
+                    Text("\(app.numSynths)s")
+                        .font(.caption2.monospacedDigit())
                         .foregroundColor(.secondary)
                 }
-
-                Text("\(app.numSynths)s \(app.numUGens)u")
-                    .font(.caption.monospacedDigit())
-                    .foregroundColor(.secondary)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color(.systemBackground).opacity(0.95))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
 
             Divider()
 
@@ -49,7 +50,7 @@ struct EditorView: View {
             CodeTextView(text: $app.codeText, onEvaluate: {
                 app.evaluateSelection()
             })
-            .background(Color(.systemBackground))
+            .ignoresSafeArea(.keyboard)
         }
     }
 }

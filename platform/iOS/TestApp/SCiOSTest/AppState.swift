@@ -34,7 +34,7 @@ class AppState: ObservableObject {
     func bootServer() -> Bool {
         var config = SCiOSServerConfigDefault()
         config.sampleRate = 48000
-        config.numInputChannels = 1
+        config.numInputChannels = 0  // No mic input by default (avoids permission prompt blocking boot)
         config.numOutputChannels = 2
         config.verbose = true
 
@@ -42,7 +42,9 @@ class AppState: ObservableObject {
         server = SCiOSServerCreate(&config, &errorBuf, 256)
 
         guard server != nil else {
-            appendPost("ERROR: \(String(cString: errorBuf))\n")
+            let err = String(cString: errorBuf)
+            appendPost("ERROR: Server failed to start: \(err)\n")
+            appendPost("This may be an audio session issue. Try rebooting the app.\n")
             return false
         }
 
@@ -50,7 +52,7 @@ class AppState: ObservableObject {
         if started {
             serverRunning = true
             startStatusUpdates()
-            appendPost("Server booted: 48000 Hz, 2 out, 1 in\n")
+            appendPost("Server booted: 48000 Hz, 2 out\n")
         }
         return started
     }

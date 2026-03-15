@@ -7,10 +7,8 @@ struct ContentView: View {
     var body: some View {
         Group {
             if UIDevice.current.userInterfaceIdiom == .pad {
-                // iPad: split view
                 iPadLayout
             } else {
-                // iPhone: tab layout
                 iPhoneLayout
             }
         }
@@ -20,10 +18,12 @@ struct ContentView: View {
 
     var iPadLayout: some View {
         NavigationSplitView {
-            // Sidebar
             List(selection: .constant(0)) {
                 NavigationLink(destination: ServerView()) {
                     Label("Server", systemImage: "server.rack")
+                }
+                NavigationLink(destination: FileBrowserView()) {
+                    Label("Files", systemImage: "folder")
                 }
             }
             .navigationTitle("SuperCollider")
@@ -38,25 +38,17 @@ struct ContentView: View {
 
     var iPhoneLayout: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
-                EditorView()
-                    .navigationTitle("Editor")
-                    .navigationBarTitleDisplayMode(.inline)
-            }
-            .tabItem {
-                Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")
-            }
-            .tag(0)
+            EditorView()
+                .tabItem {
+                    Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                .tag(0)
 
-            NavigationStack {
-                PostView()
-                    .navigationTitle("Post")
-                    .navigationBarTitleDisplayMode(.inline)
-            }
-            .tabItem {
-                Label("Post", systemImage: "text.alignleft")
-            }
-            .tag(1)
+            PostView()
+                .tabItem {
+                    Label("Post", systemImage: "text.alignleft")
+                }
+                .tag(1)
 
             NavigationStack {
                 ServerView()
