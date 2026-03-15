@@ -186,7 +186,7 @@ endif()
 target_compile_definitions(libscsynth PUBLIC  SC_MEMORY_ALIGNMENT=32)
 
 if(SC_IOS)
-    target_compile_definitions(libscsynth PUBLIC SC_IOS=1)
+    target_compile_definitions(libscsynth PUBLIC SC_IOS=1 SC_IPHONE=1)
 
     # Link static plugin OBJECT libraries into libscsynth
     if(SC_IOS_STATIC_PLUGIN_OBJECTS)

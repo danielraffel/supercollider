@@ -287,7 +287,7 @@ mark_as_advanced(READLINE_INCLUDE_DIR READLINE_LIBRARY)
 
 if (APPLE)
 	if(SC_IOS)
-		target_compile_definitions(libsclang PUBLIC SC_IOS=1)
+		target_compile_definitions(libsclang PUBLIC SC_IOS=1 SC_IPHONE=1)
 		target_sources(libsclang PRIVATE SC_iOSSclang.cpp)
 		target_link_libraries(libsclang "-framework CoreMIDI")
 		target_link_libraries(libsclang "-framework CoreFoundation")
