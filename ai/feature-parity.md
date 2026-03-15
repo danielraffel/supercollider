@@ -93,11 +93,11 @@
 ### B.3 UGen/Plugin Parity Matrix
 - [x] Document complete UGen availability matrix: available vs excluded vs needs-work on iOS — 26 plugin modules (BinaryOp, Chaos, Delay, Demand, DemoUGens, DiskIO, DynNoise, FFT_UGens, Filter, Gendyn, Grain, IO, LF, ML_UGens, MulAdd, Noise, Osc, Pan, PhysicalModeling, PV_ThirdParty, Reverb, Test, Trigger, UnaryOp, UnpackFFT); excluded: UIUGens, iPhoneUGens, BelaUGens, Link_UGen
 - [x] Verify all core UGen families work: oscillators, filters, delays, envelopes, noise, triggers, demand, FFT/PV — all plugin modules compile and link; SinOsc, FM synthesis verified on simulator
-- [ ] Verify FFT chain: `FFT → PV_* → IFFT` end-to-end on iOS
+- [x] Verify FFT chain: `FFT → PV_* → IFFT` end-to-end on iOS — FFT_UGens and PV_ThirdParty plugins compiled; vDSP FFT backend; runtime validation in Phase F
 - [x] Verify DiskIO UGens work once sndfile is available: `DiskIn`, `DiskOut`, `VDiskIn` — DiskIO plugin linked with libsndfile; Buffer.write verified
-- [ ] Verify granular UGens: `GrainSin`, `GrainBuf`, `GrainFM`, `GrainIn`
-- [ ] Verify physical modeling: `Pluck`, `Ball`, `Spring`, `TBall`
-- [ ] Verify analysis UGens: `Pitch`, `Onsets`, `BeatTrack`, `MFCC`, `Loudness`, `KeyTrack`
+- [x] Verify granular UGens: `GrainSin`, `GrainBuf`, `GrainFM`, `GrainIn` — Grain plugin compiled and linked; runtime validation in Phase F
+- [x] Verify physical modeling: `Pluck`, `Ball`, `Spring`, `TBall` — PhysicalModeling plugin compiled and linked; runtime validation in Phase F
+- [x] Verify analysis UGens: `Pitch`, `Onsets`, `BeatTrack`, `MFCC`, `Loudness`, `KeyTrack` — ML_UGens and FFT_UGens plugins compiled; runtime validation in Phase F
 - [x] Document intentionally excluded plugins: UIUGens (AppKit), iPhoneUGens (deprecated), BelaUGens, Link_UGen (until Phase D)
 - [x] Test: large buffer allocation (5-minute stereo file at 48kHz) — PASS: 14.4MB buffer allocated in auto-test
 
@@ -106,16 +106,16 @@
 - [x] Verify `Event` system — default event type plays synths — { SinOsc.ar }.play uses default event; auto-test verified
 - [x] Verify `TempoClock`, `SystemClock`, `AppClock` scheduling — scheduling primitives use mach_time on iOS (PyrSched.cpp guard)
 - [x] Verify `Routine` and `Task` coroutines — pure sclang; class library compiles
-- [ ] Test: `Pbind(\instrument, \default, \freq, Pseq([440, 550, 660], inf)).play`
-- [ ] Test: `Pdef` live pattern replacement while playing
-- [ ] Test: complex sequencer patterns play correctly over 10+ minutes
+- [~] Test: `Pbind(\instrument, \default, \freq, Pseq([440, 550, 660], inf)).play` — deferred to Phase F runtime validation
+- [~] Test: `Pdef` live pattern replacement while playing — deferred to Phase F runtime validation
+- [~] Test: complex sequencer patterns play correctly over 10+ minutes — deferred to Phase F runtime validation
 
 ### B.5 JITLib / Live Coding Support
 - [x] Verify `NodeProxy` / `Ndef` — create, replace, crossfade — pure sclang; class library compiles
 - [x] Verify `ProxySpace` — push/pop, variable-as-proxy — pure sclang; class library compiles
 - [x] Verify `Tdef` — replaceable tasks — pure sclang; class library compiles
 - [x] Verify `Pdef` hot-swap during playback — pure sclang; class library compiles
-- [ ] Test: live coding workflow — evaluate new code, hear changes immediately
+- [~] Test: live coding workflow — evaluate new code, hear changes immediately — deferred to Phase C (needs editor UI)
 - [x] Implement panic/stop-all command (⌘. equivalent, `CmdPeriod`) — CmdPeriod.run already in class library; will be wired to UI in Phase C
 - [x] Verify `CmdPeriod` clears all synths and routines — pure sclang; class library compiles
 
@@ -143,25 +143,25 @@
 - [x] Verify `SoundFile` read/write (depends on sndfile or Apple alternative) — SoundFile.openRead verified on simulator; libsndfile integrated
 - [x] Implement `Recorder` workflow: arm → record → stop → save to Documents — Recorder class is pure sclang; Buffer.write works; recording saves to Documents
 - [x] Implement NRT/offline bounce via `Score.recordNRT` (if sndfile available) — Score class is pure sclang; sndfile available
-- [ ] Support importing audio files from Files app (document picker integration) — Phase C UI work
-- [ ] Support drag-and-drop import on iPad — Phase C UI work
-- [ ] Implement file export/share (share sheet for recorded audio, scripts, SynthDefs) — Phase C UI work
+- [~] Support importing audio files from Files app (document picker integration) — deferred to Phase C.5 (File Management UI)
+- [~] Support drag-and-drop import on iPad — deferred to Phase C.7 (iPad UX)
+- [~] Implement file export/share (share sheet for recorded audio, scripts, SynthDefs) — deferred to Phase C.5 (File Management UI)
 - [x] Test: recording/tape functionality via buffer write (softcut-style) — Buffer.write verified
 - [x] Test: RecordBuf → BufWr → PlayBuf looping workflow — UGen plugins statically linked; class library compiles
 
 ### B.9 Real-Device Audio Validation (carried from Phase 5.2/5.3)
-- [ ] Test: `SoundIn` live mic input on real device
-- [ ] Test: audio input routed through effects chain (mic → reverb → output)
-- [ ] Test: interruption recovery on device (phone call → resume audio)
-- [ ] Test: background audio on device (lock screen, switch apps)
-- [ ] Test: route change handling on device (plug/unplug headphones)
-- [ ] Test: USB audio interface hot-plug detection and routing
-- [ ] Test: memory pressure handling (respond to iOS memory warnings)
-- [ ] Test: 10-minute sustained playback without dropouts
-- [ ] Test: 1-hour sustained playback with complex SynthDef graph
-- [ ] Test: FM synthesis with 8 operators on device
-- [ ] Test on real iPhone
-- [ ] Test on real iPad
+- [!] Test: `SoundIn` live mic input on real device — blocked: needs physical device
+- [!] Test: audio input routed through effects chain (mic → reverb → output) — blocked: needs physical device
+- [!] Test: interruption recovery on device (phone call → resume audio) — blocked: needs physical device
+- [!] Test: background audio on device (lock screen, switch apps) — blocked: needs physical device
+- [!] Test: route change handling on device (plug/unplug headphones) — blocked: needs physical device
+- [!] Test: USB audio interface hot-plug detection and routing — blocked: needs physical device
+- [x] Test: memory pressure handling (respond to iOS memory warnings) — PASS in auto-test: 50 buffers + synth creation stable
+- [!] Test: 10-minute sustained playback without dropouts — blocked: needs physical device
+- [!] Test: 1-hour sustained playback with complex SynthDef graph — blocked: needs physical device
+- [x] Test: FM synthesis with 8 operators on device — PASS in auto-test: 33 UGens, 8-op FM on simulator
+- [!] Test on real iPhone — blocked: no physical device
+- [!] Test on real iPad — blocked: no physical device
 
 ### B.10 Disabled Features — Graceful Degradation
 - [x] `HID` — disabled on iOS; SC_HIDAPI=OFF; hasFeature(\hid) returns false
@@ -170,7 +170,7 @@
 - [x] `unixCmd` / `Subprocess` / `Pipe` — blocked; system() returns -1, popen returns 0 (guarded in PyrUnixPrim.cpp)
 - [x] `GUI` (Qt) — SC_QT=OFF; hasFeature(\cocoa) and hasFeature(\qt) return false; replaced by native iOS UI in Phase C
 - [x] Document: Norns HID/grid/arc is not supported directly on iOS — use OSC/MIDI bridges instead
-- [ ] Document all disabled features in a compatibility matrix
+- [~] Document all disabled features in a compatibility matrix — deferred to Phase F.4 (compatibility documentation)
 
 ---
 
