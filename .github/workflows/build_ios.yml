@@ -1,0 +1,74 @@
+name: iOS Build & Test
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure iOS build (device)
+        run: |
+          cmake -B build-ios -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DSC_IOS=ON \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0
+
+      - name: Build libscsynth (device)
+        run: |
+          cmake --build build-ios --config Release --target libscsynth -- \
+            -sdk iphoneos CODE_SIGNING_ALLOWED=NO
+
+      - name: Configure iOS build (simulator)
+        run: |
+          cmake -B build-ios-sim -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DSC_IOS=ON \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0
+
+      - name: Build libscsynth (simulator)
+        run: |
+          cmake --build build-ios-sim --config Release --target libscsynth -- \
+            -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
+
+      - name: Verify static library symbols
+        run: |
+          echo "=== Checking device library ==="
+          DEVICE_LIB=$(find build-ios -name "libscsynth.a" -path "*/Release-iphoneos/*" | head -1)
+          echo "Library: $DEVICE_LIB"
+          nm "$DEVICE_LIB" | grep " T _SCiOS" | wc -l
+          echo "=== C API functions found ==="
+          nm "$DEVICE_LIB" | grep " T _SCiOS"
+          echo "=== Plugin load functions ==="
+          nm "$DEVICE_LIB" | grep "_Load" | grep "InterfaceTable" | wc -l
+
+  build-desktop-regression:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure desktop build
+        run: cmake -B build-desktop -DSC_QT=OFF -DSC_IDE=OFF
+
+      - name: Build desktop libscsynth
+        run: cmake --build build-desktop --target libscsynth -j$(sysctl -n hw.ncpu)
+
+      - name: Build desktop scsynth
+        run: cmake --build build-desktop --target scsynth -j$(sysctl -n hw.ncpu)
+
+      - name: Build all targets
+        run: cmake --build build-desktop -j$(sysctl -n hw.ncpu)
+
+      - name: Run desktop tests
+        run: ctest --test-dir build-desktop --output-on-failure -j$(sysctl -n hw.ncpu)

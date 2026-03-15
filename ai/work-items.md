@@ -316,14 +316,14 @@
 ## CI Pipeline
 > Runs on every push/PR
 
-- [ ] Create `.github/workflows/build_ios.yml`
-  - [ ] iOS CMake configure
-  - [ ] Build libscsynth for device (arm64)
-  - [ ] Build libscsynth for simulator (arm64)
-  - [ ] Run simulator unit tests
-  - [ ] Build XCFramework
-  - [ ] Upload artifacts
-- [ ] Create desktop regression job in same workflow
-  - [ ] Build desktop libscsynth
-  - [ ] Run desktop test suite
-- [ ] Verify CI passes on first commit
+- [x] Create `.github/workflows/build_ios.yml`
+  - [x] iOS CMake configure (device + simulator)
+  - [x] Build libscsynth for device (arm64)
+  - [x] Build libscsynth for simulator (arm64)
+  - [~] Run simulator unit tests — needs test app
+  - [~] Build XCFramework — added to script, not yet in CI
+  - [~] Upload artifacts — deferred
+- [x] Create desktop regression job in same workflow
+  - [x] Build desktop libscsynth
+  - [x] Run desktop test suite
+- [~] Verify CI passes on first commit — need to push
