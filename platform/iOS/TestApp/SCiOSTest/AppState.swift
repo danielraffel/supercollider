@@ -10,6 +10,7 @@ class AppState: ObservableObject {
     @Published var peakCPU: Float = 0
     @Published var numSynths: Int = 0
     @Published var numUGens: Int = 0
+    @Published var isPlaying: Bool = false
     @Published var postOutput = ""
     @Published var currentFile: String? = nil
     @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
@@ -135,6 +136,7 @@ class AppState: ObservableObject {
         numSynths = Int(SCiOSServerNumSynths(server))
         numUGens = Int(SCiOSServerNumUGens(server))
         serverRunning = SCiOSServerIsRunning(server)
+        isPlaying = numSynths > 0
     }
 
     // MARK: - Code Evaluation

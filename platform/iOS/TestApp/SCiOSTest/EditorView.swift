@@ -12,20 +12,15 @@ struct EditorView: View {
             Divider()
 
             // Code editor takes all remaining space
-            CodeTextView(text: $app.codeText, onEvaluate: {
-                app.evaluateSelection()
-            })
+            CodeTextView(
+                text: $app.codeText,
+                onEvaluate: { app.evaluateSelection() },
+                onEvaluateCode: { code in app.evaluateCode(code) },
+                onStop: { app.stopAll() }
+            )
             .layoutPriority(1)
         }
         .background(Color.black)
-        .onAppear {
-            scEvaluateCallback = { [weak app] code in
-                app?.evaluateCode(code)
-            }
-            scStopCallback = { [weak app] in
-                app?.stopAll()
-            }
-        }
     }
 
     var toolbar: some View {
@@ -34,8 +29,19 @@ struct EditorView: View {
                 Image(systemName: "play.fill")
                     .foregroundColor(.white)
                     .frame(width: 36, height: 36)
-                    .background(app.sclangReady ? Color.green : Color.gray)
+                    .background(
+                        app.sclangReady
+                            ? (app.isPlaying ? Color.orange : Color.green)
+                            : Color.gray
+                    )
                     .clipShape(Circle())
+                    .overlay(
+                        app.isPlaying
+                            ? Circle()
+                                .stroke(Color.orange.opacity(0.5), lineWidth: 3)
+                                .scaleEffect(1.3)
+                            : nil
+                    )
             }
             .disabled(!app.sclangReady)
             .keyboardShortcut(.return, modifiers: .command)

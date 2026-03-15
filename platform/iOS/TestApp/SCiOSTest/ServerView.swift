@@ -27,15 +27,13 @@ struct ServerView: View {
                 }
             }
 
-            if app.serverRunning {
-                Section("Status") {
-                    LabeledContent("Avg CPU", value: String(format: "%.1f%%", app.avgCPU))
-                    LabeledContent("Peak CPU", value: String(format: "%.1f%%", app.peakCPU))
-                    LabeledContent("Synths", value: "\(app.numSynths)")
-                    LabeledContent("UGens", value: "\(app.numUGens)")
-                }
-                .font(.system(.body, design: .monospaced))
+            Section("Status") {
+                LabeledContent("Avg CPU", value: app.serverRunning ? String(format: "%.1f%%", app.avgCPU) : "—")
+                LabeledContent("Peak CPU", value: app.serverRunning ? String(format: "%.1f%%", app.peakCPU) : "—")
+                LabeledContent("Synths", value: app.serverRunning ? "\(app.numSynths)" : "—")
+                LabeledContent("UGens", value: app.serverRunning ? "\(app.numUGens)" : "—")
             }
+            .font(.system(.body, design: .monospaced))
 
             Section("Actions") {
                 Button("Play Test Tone") {
