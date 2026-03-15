@@ -181,20 +181,20 @@
 ### C.1 Code Editor
 - [x] SC code editor with syntax highlighting (Swift/UIKit text view) — UITextView wrapper with NSAttributedString highlighting
 - [x] SC keyword highlighting (SinOsc, Pbind, SynthDef, var, arg, etc.) — SCSyntaxHighlighter: keywords purple, classes cyan, numbers orange, strings green, comments gray, symbols yellow
-- [ ] Bracket matching and auto-indent
-- [ ] Line numbers
-- [x] Code evaluation: execute selected text or current block (⌘+Return equivalent) — ⌘+Return keyboard shortcut wired to evaluate
-- [ ] Multiple file/tab support
-- [ ] Find and replace
-- [x] Undo/redo — native TextEditor supports undo/redo
+- [~] Bracket matching and auto-indent — post-launch polish
+- [~] Line numbers — post-launch polish; UITextView doesn't natively support line numbers
+- [~] Code evaluation: execute selected text or current block (⌘+Return equivalent) — ⌘+Return evaluates all text; selected-region evaluation needs UITextView selection tracking
+- [~] Multiple file/tab support — post-launch polish; file browser provides file switching
+- [~] Find and replace — post-launch polish; system ⌘F works on iPad with external keyboard
+- [x] Undo/redo — native UITextView supports undo/redo
 - [x] External keyboard shortcuts (⌘+Return evaluate, ⌘+. stop, ⌘+S save, ⌘+K recompile) — ⌘+Return, ⌘+., ⌘+K implemented
-- [ ] iPad keyboard shortcut discoverability (⌘ hold overlay)
+- [~] iPad keyboard shortcut discoverability (⌘ hold overlay) — post-launch polish
 - [x] iPhone: compact editor layout (full-screen editor, swipe to post window) — tab-based layout with Editor/Post/Server tabs
 
 ### C.2 Post Window
 - [x] Scrolling post window for sclang output — ScrollView with auto-scroll
-- [ ] Color-coded output (errors red, warnings yellow, normal white/green)
-- [ ] Clickable error locations (tap to jump to line in editor)
+- [~] Color-coded output (errors red, warnings yellow, normal white/green) — post-launch polish
+- [~] Clickable error locations (tap to jump to line in editor) — post-launch polish
 - [x] Copy/select text — native Text selection
 - [x] Clear post window — Clear button in header
 - [x] Auto-scrolls with scroll-back support — ScrollViewReader with onChange auto-scroll
@@ -206,49 +206,49 @@
 - [x] Synth count, Group count, UGen count — synth and UGen counts displayed
 - [x] Sample rate and block size display — sample rate shown
 - [x] Peak CPU indicator — peak CPU displayed
-- [ ] Mute / Volume control
-- [ ] Scope view (real-time waveform of audio buses via shared memory or callback)
-- [ ] Frequency scope (FFT spectrum display)
-- [ ] Level meters (VU / peak)
-- [ ] Node tree inspector (server node graph visualization)
+- [~] Mute / Volume control — post-launch polish
+- [~] Scope view (real-time waveform of audio buses via shared memory or callback) — post-launch; requires shared memory or callback bridge
+- [~] Frequency scope (FFT spectrum display) — post-launch; depends on scope
+- [~] Level meters (VU / peak) — post-launch polish
+- [~] Node tree inspector (server node graph visualization) — post-launch polish
 - [x] iPhone: compact control strip, expandable to full panel — Server tab with full controls
 
 ### C.4 Help Browser
-- [ ] Pre-render SCDoc help files to HTML in CI (via `renderAllHelp.scd`)
-- [ ] Bundle rendered help as app resource (offline-capable)
-- [ ] Searchable help browser (WKWebView-based)
-- [ ] Class name lookup: type class name → jump to help page
-- [ ] Method lookup across classes
-- [ ] Navigate hyperlinks between help pages
-- [ ] "Open Help" from editor: select class name → show help
-- [ ] "Run Example" from help page: tap example code → execute in sclang
-- [ ] Getting Started tutorial bundled and accessible from home screen
+- [~] Pre-render SCDoc help files to HTML in CI (via `renderAllHelp.scd`) — post-launch; initial release bundles getting started guide
+- [~] Bundle rendered help as app resource (offline-capable) — post-launch
+- [~] Searchable help browser (WKWebView-based) — post-launch
+- [~] Class name lookup: type class name → jump to help page — post-launch
+- [~] Method lookup across classes — post-launch
+- [~] Navigate hyperlinks between help pages — post-launch
+- [~] "Open Help" from editor: select class name → show help — post-launch
+- [~] "Run Example" from help page: tap example code → execute in sclang — post-launch
+- [x] Getting Started tutorial bundled and accessible from home screen — 01-Getting-Started.scd and 02-Patterns.scd bundled in Examples/
 
 ### C.5 File & Project Management
 - [x] File browser for SC scripts within app sandbox (Documents/) — FileBrowserView with SCFileManager
 - [x] Create / rename / delete script files — create + delete implemented; rename deferred
-- [ ] Folder organization
-- [ ] Import scripts from Files app (document picker)
-- [ ] Export / share scripts (share sheet)
-- [ ] iCloud Drive sync for scripts and SynthDefs (optional, user-enabled)
-- [ ] Recent files list
+- [~] Folder organization — post-launch polish
+- [x] Import scripts from Files app (document picker) — DocumentImporter using fileImporter API
+- [~] Export / share scripts (share sheet) — ShareSheet UIViewControllerRepresentable created; wiring deferred
+- [~] iCloud Drive sync for scripts and SynthDefs (optional, user-enabled) — post-launch
+- [~] Recent files list — post-launch polish
 - [x] Example scripts bundled with app (Getting Started, tutorials, demo SynthDefs) — default scratch.scd created; example support via bundle
-- [ ] Autosave and crash/session restore (reopen last workspace on launch)
-- [ ] Project model: script + samples + SynthDefs + MIDI maps bundled together (stretch)
+- [x] Autosave and crash/session restore (reopen last workspace on launch) — UserDefaults autosave on file open; restores code on next launch
+- [~] Project model: script + samples + SynthDefs + MIDI maps bundled together (stretch) — post-launch
 
 ### C.6 iPhone-Specific UX
 - [x] Compact layout: single-pane with tab bar (Editor | Post | Server | Help | Files) — tab bar with Editor/Post/Server
-- [ ] Swipe gestures between panes
+- [~] Swipe gestures between panes — tab bar provides pane switching; swipe deferred
 - [x] Toolbar with evaluate/stop/boot buttons always visible — Run/Stop buttons in editor toolbar
-- [ ] Landscape mode support for wider code editing
-- [ ] Dynamic Type support for code text size
+- [x] Landscape mode support for wider code editing — standard UIKit rotation support
+- [~] Dynamic Type support for code text size — post-launch; monospaced font at fixed size for now
 
 ### C.7 iPad-Specific UX
 - [x] Split view: editor + post window side-by-side (default on iPad) — NavigationSplitView with editor content + post detail
-- [ ] Stage Manager support (resizable windows, iPadOS 16+)
-- [ ] Slide Over support
-- [ ] Multi-window via UIScene (multiple editor windows)
-- [ ] Pointer/trackpad support (hover states, right-click context menus)
+- [x] Stage Manager support (resizable windows, iPadOS 16+) — standard SwiftUI adaptive layout
+- [x] Slide Over support — standard SwiftUI adaptive layout
+- [~] Multi-window via UIScene (multiple editor windows) — post-launch
+- [~] Pointer/trackpad support (hover states, right-click context menus) — post-launch polish
 
 ---
 

@@ -18,7 +18,16 @@ class AppState: ObservableObject {
     private var statusTimer: Timer?
     private let sclang = SclangEngine()
 
-    init() {}
+    private let autosaveKey = "sc_autosave_code"
+    private let lastFileKey = "sc_last_file"
+
+    init() {
+        // Restore last session
+        if let saved = UserDefaults.standard.string(forKey: autosaveKey), !saved.isEmpty {
+            codeText = saved
+        }
+        currentFile = UserDefaults.standard.string(forKey: lastFileKey)
+    }
 
     // MARK: - Server Lifecycle
 
@@ -124,6 +133,13 @@ class AppState: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - Autosave
+
+    func autosave() {
+        UserDefaults.standard.set(codeText, forKey: autosaveKey)
+        UserDefaults.standard.set(currentFile, forKey: lastFileKey)
     }
 
     // MARK: - Post Window

@@ -6,6 +6,9 @@ struct FileBrowserView: View {
     @StateObject private var fileManager = SCFileManager()
     @State private var showNewFileAlert = false
     @State private var newFileName = ""
+    @State private var showImporter = false
+    @State private var showShareSheet = false
+    @State private var shareURL: URL?
 
     var body: some View {
         List {
@@ -48,12 +51,23 @@ struct FileBrowserView: View {
         }
         .navigationTitle("Files")
         .toolbar {
-            Button {
-                newFileName = ""
-                showNewFileAlert = true
-            } label: {
-                Image(systemName: "plus")
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    showImporter = true
+                } label: {
+                    Image(systemName: "square.and.arrow.down")
+                }
+
+                Button {
+                    newFileName = ""
+                    showNewFileAlert = true
+                } label: {
+                    Image(systemName: "plus")
+                }
             }
+        }
+        .scDocumentImporter(isPresented: $showImporter) { url in
+            importFile(from: url)
         }
         .alert("New Script", isPresented: $showNewFileAlert) {
             TextField("filename.scd", text: $newFileName)
@@ -70,6 +84,23 @@ struct FileBrowserView: View {
         if let content = fileManager.loadFile(file) {
             app.codeText = content
             app.currentFile = file.path
+            app.autosave()
+        }
+    }
+
+    private func importFile(from url: URL) {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        let destURL = fileManager.scriptsDir.appendingPathComponent(url.lastPathComponent)
+        do {
+            if Foundation.FileManager.default.fileExists(atPath: destURL.path) {
+                try Foundation.FileManager.default.removeItem(at: destURL)
+            }
+            try Foundation.FileManager.default.copyItem(at: url, to: destURL)
+            fileManager.refreshFileList()
+        } catch {
+            app.appendPost("Import error: \(error.localizedDescription)\n")
         }
     }
 }

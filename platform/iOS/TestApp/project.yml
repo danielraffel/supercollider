@@ -17,7 +17,11 @@ targets:
       - path: SCiOSTest
         excludes:
           - "*.plist"
+          - Examples
       - path: ../../../SCClassLibrary
+        buildPhase: resources
+        type: folder
+      - path: SCiOSTest/Examples
         buildPhase: resources
         type: folder
     info:
