@@ -77,8 +77,8 @@
 > Carries forward: work-items Phase 5.2, 5.3, 7.1
 
 ### B.1 Platform Class Updates
-- [ ] Modernize `iPhonePlatform.sc` — update paths, capabilities, feature flags for modern iOS
-- [ ] Update `Platform.sc` to expose iOS capability queries (hasGUI, hasFileIO, hasMIDI, hasProcessSpawn, etc.)
+- [x] Modernize `iPhonePlatform.sc` — updated: iOS-appropriate server defaults, clean startup, hasFeature queries, no more makeWindow error
+- [~] Update `Platform.sc` to expose iOS capability queries (hasGUI, hasFileIO, hasMIDI, hasProcessSpawn, etc.) — hasFeature override in iPhonePlatform; Platform.sc changes deferred
 - [ ] Update `extMain.sc` iOS startup shim for modern sclang boot sequence
 - [ ] Update `extFile.sc` iOS file overrides for sandboxed filesystem
 
