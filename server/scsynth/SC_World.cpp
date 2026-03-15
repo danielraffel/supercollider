@@ -22,7 +22,7 @@
 #    include "SC_Win32Utils.h"
 #endif
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(SC_IOS)
 #    include "../../common/SC_Apple.hpp"
 #endif
 
@@ -460,7 +460,7 @@ World* World_New(WorldOptions* inOptions) {
                 return nullptr;
             }
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(SC_IOS)
             SC::Apple::disableAppNap();
 #endif
 

@@ -25,7 +25,7 @@
 /*
  * SC_Filesystem implementation for macOS.
  */
-#if defined(__APPLE__) && !defined(SC_IPHONE)
+#if defined(__APPLE__) && !defined(SC_IPHONE) && !defined(SC_IOS)
 
 #    include "SC_Filesystem.hpp"
 

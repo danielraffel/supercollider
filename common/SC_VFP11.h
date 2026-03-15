@@ -2,6 +2,35 @@
 
 #include <TargetConditionals.h>
 
+// VFP (Vector Floating Point) instructions are ARM32 only.
+// arm64 uses NEON via compiler intrinsics — no manual asm needed.
+#if defined(__aarch64__)
+
+#define IPHONE_VEC
+
+inline void initVFP() {}
+inline void releaseVFP() {}
+inline void vfill(float* dest, float val, int len) {
+    for (int i = 0; i < len; i++) dest[i] = val;
+}
+inline void vmuladd(float* dest, float* a, float* b, float* c, int len) {
+    for (int i = 0; i < len; i++) dest[i] = a[i] + b[i] * c[i];
+}
+inline void vscalarmul(float* dest, float scalar, float* b, int len) {
+    for (int i = 0; i < len; i++) dest[i] = scalar * b[i];
+}
+inline void vmul(float* dest, float* a, const float* b, int len) {
+    for (int i = 0; i < len; i++) dest[i] = a[i] * b[i];
+}
+inline void vadd(float* dest, float* a, const float* b, int len) {
+    for (int i = 0; i < len; i++) dest[i] = a[i] + b[i];
+}
+inline void vcopy(float* dest, float* a, int len) {
+    for (int i = 0; i < len; i++) dest[i] = a[i];
+}
+
+#else // ARM32 VFP path
+
 #define IPHONE_VEC
 
 
@@ -264,3 +293,5 @@ inline void vcopy(float* dest, float* a, int len) {
                            "s27", "s28", "s29", "s30", "s31", "cc", "memory");
 #endif
 }
+
+#endif // !__aarch64__ (ARM32 VFP path)

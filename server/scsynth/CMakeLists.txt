@@ -32,7 +32,9 @@ if(AUDIOAPI STREQUAL "default")
 	endif(APPLE)
 endif()
 
-if(NOT AUDIOAPI MATCHES "^(jack|coreaudio|portaudio|bela)$")
+if(SC_IOS)
+	set(AUDIOAPI coreaudioiphone)
+elseif(NOT AUDIOAPI MATCHES "^(jack|coreaudio|portaudio|bela)$")
 	message(FATAL_ERROR "Unrecognised audio API: ${AUDIOAPI}")
 endif()
 
@@ -101,7 +103,7 @@ set(scsynth_sources
 	${CMAKE_SOURCE_DIR}/common/SC_ServerBootDelayWarning.cpp
 )
 
-if(APPLE)
+if(APPLE AND NOT SC_IOS)
 	set_property(SOURCE ${CMAKE_SOURCE_DIR}/common/SC_Filesystem_macos.cpp PROPERTY COMPILE_FLAGS -xobjective-c++)
 
 	list(APPEND scsynth_sources
@@ -110,6 +112,9 @@ if(APPLE)
 	set_source_files_properties( ${CMAKE_SOURCE_DIR}/common/SC_Apple.mm
 	    PROPERTIES COMPILE_FLAGS "-x objective-c++ -fobjc-exceptions"
 	)
+elseif(SC_IOS)
+	# Exclude macOS filesystem backend, use iPhone backend only
+	list(REMOVE_ITEM scsynth_sources ${CMAKE_SOURCE_DIR}/common/SC_Filesystem_macos.cpp)
 endif()
 
 if(WIN32)
@@ -138,6 +143,8 @@ if (AUDIOAPI STREQUAL jack)
 elseif (AUDIOAPI STREQUAL portaudio)
 	list(APPEND scsynth_sources SC_PortAudio.cpp ${CMAKE_SOURCE_DIR}/common/SC_PaUtils.cpp)
 	add_definitions("-DSC_AUDIO_API=SC_AUDIO_API_PORTAUDIO")
+elseif (AUDIOAPI STREQUAL coreaudioiphone)
+	add_definitions("-DSC_AUDIO_API=SC_AUDIO_API_COREAUDIOIPHONE")
 elseif (AUDIOAPI STREQUAL bela)
     list(APPEND scsynth_sources SC_Bela.cpp)
     add_definitions("-DSC_AUDIO_API=SC_AUDIO_API_BELA" "-DSC_BELA" ${XENOMAI_DEFINITIONS} ${BELA_DEFINITIONS})
@@ -169,11 +176,17 @@ endif()
 
 target_compile_definitions(libscsynth PUBLIC  SC_MEMORY_ALIGNMENT=32)
 
+if(SC_IOS)
+    target_compile_definitions(libscsynth PUBLIC SC_IOS=1)
+endif()
+
 target_link_libraries(libscsynth tlsf Boost::sync)
 
-find_library(DL NAMES dl)
-if(DL)
-    target_link_libraries(libscsynth ${DL})
+if(NOT SC_IOS)
+    find_library(DL NAMES dl)
+    if(DL)
+        target_link_libraries(libscsynth ${DL})
+    endif()
 endif()
 
 if(NOVA_SIMD)
@@ -225,6 +238,8 @@ elseif(AUDIOAPI STREQUAL portaudio)
 	target_link_libraries(libscsynth PortAudio::PortAudio)
 elseif(AUDIOAPI STREQUAL bela)
     target_link_libraries(libscsynth ${XENOMAI_LIBRARIES} ${BELA_LIBRARIES} belaextra)
+elseif(AUDIOAPI STREQUAL coreaudioiphone)
+	# iOS CoreAudio frameworks already linked above
 elseif(AUDIOAPI STREQUAL coreaudio)
 	target_link_libraries(libscsynth "-framework CoreAudio")
 endif()
@@ -250,7 +265,11 @@ if (FFTW3F_FOUND)
 	target_link_libraries(libscsynth ${FFTW3F_LIBRARY})
 endif()
 
-if (APPLE)
+if(SC_IOS)
+	target_link_libraries(libscsynth "-framework Accelerate -framework Foundation"
+                                        "-framework AudioToolbox -framework AVFoundation"
+                                        "-framework CoreAudio -framework CoreMIDI")
+elseif(APPLE)
 	target_link_libraries(libscsynth "-framework Accelerate -framework CoreServices"
                                         "-framework Foundation -framework AppKit")
 endif()
@@ -259,6 +278,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 	target_link_libraries(libscsynth rt)
 endif()
 
+if(NOT SC_IOS)
 add_executable(scsynth
     scsynth_main.cpp
 
@@ -347,6 +367,8 @@ else()
 			LIBRARY DESTINATION "lib${LIB_SUFFIX}"
 			PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 endif()
+
+endif() # NOT SC_IOS
 
 if(${JACK_USE_METADATA_API})
 	target_compile_definitions(libscsynth PUBLIC "-DSC_JACK_USE_METADATA_API")

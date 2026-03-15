@@ -77,6 +77,34 @@ endif()
 
 #############################################
 # Options
+
+# iOS build option — server-only, static plugins, no lang/IDE
+option(SC_IOS "Build for iOS (server-only, static library)" OFF)
+
+if(SC_IOS)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        message(FATAL_ERROR "SC_IOS=ON requires -DCMAKE_SYSTEM_NAME=iOS")
+    endif()
+
+    # Force server-only configuration
+    set(LIBSCSYNTH OFF CACHE BOOL "" FORCE) # OFF = STATIC library
+    set(SC_QT OFF CACHE BOOL "" FORCE)
+    set(SC_IDE OFF CACHE BOOL "" FORCE)
+    set(SUPERNOVA OFF CACHE BOOL "" FORCE)
+    set(NO_AVAHI ON CACHE BOOL "" FORCE)
+    set(NO_X11 ON CACHE BOOL "" FORCE)
+    set(SC_HIDAPI OFF CACHE BOOL "" FORCE)
+    set(SC_ABLETON_LINK OFF CACHE BOOL "" FORCE)
+    set(ENABLE_TESTSUITE OFF CACHE BOOL "" FORCE)
+
+    # iOS deployment target
+    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "16.0")
+    endif()
+
+    message(STATUS "SuperCollider iOS build: server-only, static library, static plugins")
+endif()
+
 option(NOVA_SIMD "Build with nova-simd support." ON)
 option(FINAL_BUILD "Build as single source file." OFF)
 option(USE_CCACHE "Use ccache if available." ON)
@@ -451,9 +479,11 @@ else()
 endif()
 
 add_subdirectory(server)
-add_subdirectory(lang)
-add_subdirectory(platform)
-add_subdirectory(editors)
+if(NOT SC_IOS)
+    add_subdirectory(lang)
+    add_subdirectory(platform)
+    add_subdirectory(editors)
+endif()
 
 if(UNIX AND NOT APPLE)
     install(DIRECTORY include/common include/plugin_interface include/server include/lang

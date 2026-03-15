@@ -25,7 +25,7 @@
 /*
  * SC_Filesystem implementation for iPhone.
  */
-#ifdef SC_IPHONE
+#if defined(SC_IPHONE) || defined(SC_IOS)
 
 #    include "SC_Filesystem.hpp"
 
@@ -112,4 +112,4 @@ Path SC_Filesystem::defaultUserConfigDirectory() {
 
 Path SC_Filesystem::defaultResourceDirectory() { return defaultUserAppSupportDirectory(); }
 
-#endif // SC_IPHONE
+#endif // SC_IPHONE || SC_IOS

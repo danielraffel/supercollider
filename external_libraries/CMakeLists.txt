@@ -28,7 +28,7 @@ if(MSVC) # hide warnings from 3rd party libraries
 	)
 endif()
 
-if(NOT SYSTEM_PORTAUDIO)
+if(NOT SYSTEM_PORTAUDIO AND NOT SC_IOS)
     message(STATUS "PortAudio: building static library")
     add_subdirectory(portaudio)
 endif()

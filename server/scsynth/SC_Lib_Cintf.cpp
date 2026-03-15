@@ -40,21 +40,21 @@
 #    include <windows.h>
 #    include "SC_Win32Utils.h"
 #    include "SC_Codecvt.hpp"
-#else
+#elif !defined(SC_IOS)
 #    include <dlfcn.h>
 #    include <libgen.h>
 #    include <sys/param.h>
-#endif // _WIN32
+#endif
 
 #include <filesystem>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(SC_IOS)
 extern "C" {
 #    include <mach-o/dyld.h>
 #    include <mach-o/getsect.h>
 }
 char gTempVal;
-#endif // __APPLE__
+#endif
 
 namespace fs = std::filesystem;
 
@@ -77,13 +77,18 @@ SC_LibCmd* gCmdArray[NUMBER_OF_COMMANDS];
 #endif
 
 void initMiscCommands();
+#if !defined(SC_IOS)
 #ifdef LINUX_PLUGIN_WORKAROUND
 static bool PlugIn_LoadDir(const fs::path& dir, bool reportError, bool foundScxFile = false);
 #else
 static bool PlugIn_LoadDir(const fs::path& dir, bool reportError);
 #endif
+#endif // !SC_IOS
+#if !defined(SC_IOS)
 std::vector<void*> open_handles;
-#ifdef __APPLE__
+#endif
+
+#if defined(__APPLE__) && !defined(SC_IOS)
 void read_section(const struct mach_header* mhp, unsigned long slide, const char* segname, const char* sectname) {
     u_int32_t size;
     char* sect = getsectdatafromheader(mhp, segname, sectname, &size);
@@ -133,7 +138,9 @@ void deinitialize_library() {
     UIUGens_Unload();
 #endif // STATIC_PLUGINS
 
-#ifdef _WIN32
+#if defined(SC_IOS)
+    // On iOS, plugins are statically linked — nothing to unload
+#elif defined(_WIN32)
     for (void* ptrhinstance : open_handles) {
         HINSTANCE hinstance = (HINSTANCE)ptrhinstance;
         void* ptr = (void*)GetProcAddress(hinstance, "unload");
@@ -143,6 +150,7 @@ void deinitialize_library() {
         }
         FreeLibrary(hinstance);
     }
+    open_handles.clear();
 #else
     for (void* handle : open_handles) {
         void* ptr = dlsym(handle, "unload");
@@ -152,8 +160,8 @@ void deinitialize_library() {
         }
         dlclose(handle);
     }
-#endif
     open_handles.clear();
+#endif
 }
 
 void initialize_library(const char* uGensPluginPath) {
@@ -163,6 +171,11 @@ void initialize_library(const char* uGensPluginPath) {
     gPlugInCmds = new HashTable<PlugInCmd, Malloc>(&gMalloc, 64, true);
 
     initMiscCommands();
+
+#if defined(SC_IOS)
+    // On iOS, plugins are statically linked via generated registry (Phase 2).
+    // No dynamic loading — dlopen is not allowed on iOS.
+#else // !SC_IOS
 
 #ifdef STATIC_PLUGINS
     IO_Load(&gInterfaceTable);
@@ -276,7 +289,12 @@ void initialize_library(const char* uGensPluginPath) {
 #    endif // __x86_64__
 
 #endif // ifdef __APPLE__
+
+#endif // !SC_IOS
 }
+
+#if !defined(SC_IOS)
+// Dynamic plugin loading — not used on iOS (static plugins only)
 
 typedef int (*InfoFunction)();
 
@@ -489,3 +507,5 @@ static bool PlugIn_LoadDir(const fs::path& dir, bool reportError, bool foundScxF
 
     return true;
 }
+
+#endif // !SC_IOS (dynamic plugin loading)
