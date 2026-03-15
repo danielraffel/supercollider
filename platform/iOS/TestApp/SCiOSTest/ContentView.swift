@@ -33,6 +33,11 @@ struct ContentView: View {
                             .font(.title2.monospacedDigit())
 
                         Slider(value: $frequency, in: 100...2000, step: 1)
+                            .onChange(of: frequency) { newValue in
+                                if isPlaying {
+                                    engine.setNodeControl(1000, "freq", Float(newValue))
+                                }
+                            }
 
                         Button(isPlaying ? "Stop" : "Play") {
                             toggleSine()
@@ -71,7 +76,11 @@ struct ContentView: View {
     }
 
     private func toggleSine() {
-        // TODO: implement OSC message building for /s_new and /n_free
+        if isPlaying {
+            engine.freeNode(1000)
+        } else {
+            engine.playSine(freq: Float(frequency), amp: 0.3, nodeID: 1000)
+        }
         isPlaying.toggle()
     }
 }

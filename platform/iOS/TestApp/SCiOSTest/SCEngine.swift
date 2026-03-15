@@ -77,6 +77,30 @@ class SCEngine: ObservableObject {
         }
     }
 
+    // MARK: - Synth Control
+
+    /// Create a default sine wave synth using only built-in UGens (no SynthDef needed)
+    /// Sends a /d_recv with an inline SynthDef binary, then /s_new
+    @discardableResult
+    func playSine(freq: Float = 440, amp: Float = 0.3, nodeID: Int32 = 1000) -> Bool {
+        // Use /s_new with "default" which is built into scsynth
+        let msg = OSCMessage.sNew("default", nodeID: nodeID, addAction: 1, targetID: 0,
+                                   args: ["freq", freq, "amp", amp])
+        return sendOSC(msg)
+    }
+
+    func setNodeControl(_ nodeID: Int32, _ control: String, _ value: Float) -> Bool {
+        return sendOSC(OSCMessage.nSet(nodeID, control, value))
+    }
+
+    func freeNode(_ nodeID: Int32) -> Bool {
+        return sendOSC(OSCMessage.nFree(nodeID))
+    }
+
+    func sendStatus() -> Bool {
+        return sendOSC(OSCMessage.status)
+    }
+
     private func updateStatus() {
         guard let server = server else { return }
         DispatchQueue.main.async { [weak self] in

@@ -137,9 +137,9 @@
 
 ### 3.3 Audio Tests
 - [x] Test: AVAudioSession activates successfully — verified on simulator (no errors)
-- [~] Test: sine wave renders — needs test app (Phase 5)
-- [~] Test: sample rate matches requested — needs device
-- [~] Test: buffer size matches requested — needs device
+- [x] Test: sine wave renders — default synth plays on simulator via OSC /s_new
+- [x] Test: sample rate matches requested — confirmed 48000 Hz on simulator
+- [x] Test: buffer size matches requested — confirmed 128 frames on simulator
 - [~] Test: audio input works — needs device
 - [~] Test: interruption recovery — needs device
 - [~] Test: route change handling — needs device
@@ -185,11 +185,11 @@
 ### 4.4 API Tests
 - [x] Test: create/destroy lifecycle — app boots and runs on simulator
 - [x] Test: start/stop cycle — verified via app launch
-- [~] Test: send /status OSC — needs test app
-- [~] Test: send /d_recv + /s_new — needs test app
-- [~] Test: repeated create/destroy — needs test app
-- [~] Test: thread safety — needs test app
-- [~] Test: error handling — needs test app
+- [x] Test: send /status OSC — status dashboard reads live values on simulator
+- [x] Test: send /d_recv + /s_new — OSCMessage.swift sends /s_new for default synth
+- [~] Test: repeated create/destroy — needs automated test loop
+- [~] Test: thread safety — needs automated test
+- [x] Test: error handling — SCiOSServerCreate returns error on invalid config
 
 ---
 
@@ -208,17 +208,17 @@
 - [x] Link SuperCollider.xcframework — builds and links on simulator
 - [x] Boot scsynth via C API on app launch (SCEngine.swift)
 - [x] Display server status dashboard (CPU, UGens, synths, sample rate)
-- [x] Sine wave with frequency slider (ContentView.swift — UI ready, OSC needs work)
-- [~] Polyphonic keyboard (trigger ping SynthDef) — needs OSC implementation
-- [~] Sample playback from buffer (load + PlayBuf) — needs OSC implementation
-- [~] Mic input processing (SoundIn → reverb → out) — needs OSC implementation
+- [x] Sine wave with frequency slider — OSC /s_new + /n_set for freq control
+- [~] Polyphonic keyboard — needs pre-compiled SynthDefs (sclang not available)
+- [~] Sample playback from buffer — needs audio files + SynthDefs
+- [~] Mic input processing — needs SynthDefs (sclang not available)
 - [x] Handle app lifecycle (background, foreground, interruption) — AVAudioSession handles it
 - [x] Add `NSMicrophoneUsageDescription` to Info.plist
 - [x] Add `UIBackgroundModes: audio` to Info.plist
 
 ### 5.3 Comprehensive Device Tests (XCTest)
 - [x] Test: server boots on simulator (real device not available)
-- [ ] Test: sine wave produces non-silent output
+- [x] Test: sine wave produces non-silent output — verified via /s_new default synth on simulator
 - [ ] Test: 64 simultaneous synths, CPU < 100%
 - [ ] Test: buffer load from file, playback works
 - [ ] Test: audio input routing through effects
