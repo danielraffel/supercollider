@@ -25,7 +25,7 @@ echo "Include sclang: $BUILD_SCLANG"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-CMAKE_COMMON_OPTS="-DCMAKE_SYSTEM_NAME=iOS -DSC_IOS=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 -DNO_LIBSNDFILE=ON"
+CMAKE_COMMON_OPTS="-DCMAKE_SYSTEM_NAME=iOS -DSC_IOS=ON -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 if [ "$BUILD_SCLANG" = "ON" ]; then
     CMAKE_COMMON_OPTS="$CMAKE_COMMON_OPTS -DSC_IOS_SCLANG=ON -DSCLANG_SERVER=ON"
 fi
@@ -35,9 +35,9 @@ echo ""
 echo "=== Building for device (iphoneos arm64) ==="
 cmake -B "$BUILD_DIR/device" -G Xcode $CMAKE_COMMON_OPTS
 
-TARGETS="libscsynth"
+TARGETS="sndfile libscsynth"
 if [ "$BUILD_SCLANG" = "ON" ]; then
-    TARGETS="libscsynth libsclang"
+    TARGETS="sndfile libscsynth libsclang"
 fi
 
 for target in $TARGETS; do
@@ -82,9 +82,12 @@ merge_libs() {
 
     local libs_to_merge=("$output_lib")
 
-    # Always merge tlsf
+    # Always merge tlsf and sndfile
     local tlsf=$(find "$build_path" -name "libtlsf.a" -path "*/$sdk_pattern/*" | head -1)
     [ -n "$tlsf" ] && libs_to_merge+=("$tlsf")
+
+    local sndfile=$(find "$build_path" -name "libsndfile.a" -path "*/$sdk_pattern/*" | head -1)
+    [ -n "$sndfile" ] && libs_to_merge+=("$sndfile")
 
     if [ "$BUILD_SCLANG" = "ON" ]; then
         # Merge sclang and its dependencies
