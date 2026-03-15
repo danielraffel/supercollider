@@ -1,15 +1,16 @@
 import SwiftUI
 import UIKit
 
-/// Callback for code evaluation from text view context menu
+/// Global callbacks for code evaluation
 var scEvaluateCallback: ((String) -> Void)?
 var scStopCallback: (() -> Void)?
+/// Closure to get current selected text (or all text if no selection)
+var scGetSelectedText: (() -> String)?
 
 /// Custom UITextView subclass with SC-specific menu actions
 class SCCodeTextView: UITextView {
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        // Add our custom actions alongside standard ones
         if action == #selector(evaluateSelection(_:)) || action == #selector(stopAllSound(_:)) {
             return true
         }
@@ -19,7 +20,6 @@ class SCCodeTextView: UITextView {
     override func buildMenu(with builder: UIMenuBuilder) {
         super.buildMenu(with: builder)
 
-        // Add SC actions to the context menu
         let evalAction = UIAction(title: "Evaluate", image: UIImage(systemName: "play.fill")) { [weak self] _ in
             self?.evaluateSelection(nil)
         }
@@ -35,13 +35,20 @@ class SCCodeTextView: UITextView {
             let selected = text(in: range) ?? ""
             scEvaluateCallback?(selected)
         } else {
-            // No selection: evaluate all text
             scEvaluateCallback?(text ?? "")
         }
     }
 
     @objc func stopAllSound(_ sender: Any?) {
         scStopCallback?()
+    }
+
+    /// Returns selected text, or all text if nothing selected
+    func getSelectedOrAllText() -> String {
+        if let range = selectedTextRange, !range.isEmpty {
+            return text(in: range) ?? text ?? ""
+        }
+        return text ?? ""
     }
 }
 
@@ -64,20 +71,26 @@ struct CodeTextView: UIViewRepresentable {
         textView.keyboardDismissMode = .interactive
         textView.alwaysBounceVertical = true
         textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 16, right: 4)
-
-        // Make it fill available space
         textView.setContentHuggingPriority(.defaultLow, for: .vertical)
         textView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+
+        // Wire up the get-selected-text closure
+        scGetSelectedText = { [weak textView] in
+            textView?.getSelectedOrAllText() ?? ""
+        }
 
         return textView
     }
 
     func updateUIView(_ textView: SCCodeTextView, context: Context) {
-        // Wire up callbacks
         scEvaluateCallback = { code in
             context.coordinator.evaluateCode?(code)
         }
         scStopCallback = context.coordinator.stopAll
+
+        scGetSelectedText = { [weak textView] in
+            textView?.getSelectedOrAllText() ?? ""
+        }
 
         if textView.text != text {
             let selectedRange = textView.selectedRange
@@ -108,7 +121,6 @@ struct CodeTextView: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             text.wrappedValue = textView.text
 
-            // Debounce syntax highlighting
             highlightTimer?.invalidate()
             highlightTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
                 self?.applyHighlighting(textView)

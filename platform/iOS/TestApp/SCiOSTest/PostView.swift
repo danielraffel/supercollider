@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PostView: View {
     @EnvironmentObject var app: AppState
+    @State private var showCopied = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -9,8 +10,24 @@ struct PostView: View {
                 Text("Post")
                     .font(.headline)
                 Spacer()
+
+                if showCopied {
+                    Text("Copied!")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                        .transition(.opacity)
+                }
+
                 Button {
                     UIPasteboard.general.string = app.postOutput
+                    withAnimation {
+                        showCopied = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation {
+                            showCopied = false
+                        }
+                    }
                 } label: {
                     Image(systemName: "doc.on.doc")
                 }

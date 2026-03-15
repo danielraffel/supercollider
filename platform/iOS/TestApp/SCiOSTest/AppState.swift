@@ -205,9 +205,17 @@ class AppState: ObservableObject {
     }
 
     func evaluateSelection() {
-        // Play button evaluates ALL text — this may cause errors with multi-block files.
-        // For multi-block files, user should select specific blocks and use Evaluate from menu.
-        evaluate(codeText)
+        // Only evaluate SELECTED text — never the whole file
+        // (whole-file eval causes syntax errors on multi-block tutorial files)
+        if let getText = scGetSelectedText {
+            let selected = getText()
+            let trimmed = selected.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty && trimmed != codeText.trimmingCharacters(in: .whitespacesAndNewlines) {
+                evaluate(selected)
+                return
+            }
+        }
+        appendPost("⚠ Select code first, then tap Play or use Evaluate from the text menu\n")
     }
 
     func evaluateCode(_ code: String) {
@@ -215,10 +223,12 @@ class AppState: ObservableObject {
     }
 
     func stopAll() {
-        // Free ALL nodes on server via /g_deepFree on root group (0)
+        // Free ALL nodes on server via C API OSC
         let _ = sendOSC(OSCMessage.build("/g_deepFree", [Int32(0)]))
-        // Recreate default group
-        let _ = sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
+        // Recreate default group (Group 1)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            let _ = self?.sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
+        }
         // Also run CmdPeriod in sclang to clean up routines/patterns
         if sclangReady {
             let _ = sclang.interpret("CmdPeriod.run;")
