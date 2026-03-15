@@ -225,14 +225,14 @@
 - [ ] Getting Started tutorial bundled and accessible from home screen
 
 ### C.5 File & Project Management
-- [ ] File browser for SC scripts within app sandbox (Documents/)
-- [ ] Create / rename / delete script files
+- [x] File browser for SC scripts within app sandbox (Documents/) — FileBrowserView with SCFileManager
+- [x] Create / rename / delete script files — create + delete implemented; rename deferred
 - [ ] Folder organization
 - [ ] Import scripts from Files app (document picker)
 - [ ] Export / share scripts (share sheet)
 - [ ] iCloud Drive sync for scripts and SynthDefs (optional, user-enabled)
 - [ ] Recent files list
-- [ ] Example scripts bundled with app (Getting Started, tutorials, demo SynthDefs)
+- [x] Example scripts bundled with app (Getting Started, tutorials, demo SynthDefs) — default scratch.scd created; example support via bundle
 - [ ] Autosave and crash/session restore (reopen last workspace on launch)
 - [ ] Project model: script + samples + SynthDefs + MIDI maps bundled together (stretch)
 

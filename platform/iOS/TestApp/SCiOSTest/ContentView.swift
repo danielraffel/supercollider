@@ -65,6 +65,14 @@ struct ContentView: View {
                 Label("Server", systemImage: "server.rack")
             }
             .tag(2)
+
+            NavigationStack {
+                FileBrowserView()
+            }
+            .tabItem {
+                Label("Files", systemImage: "folder")
+            }
+            .tag(3)
         }
     }
 }
