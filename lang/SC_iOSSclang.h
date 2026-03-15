@@ -45,12 +45,20 @@ void SCiOSSclangSetPostCallback(SCiOSSclangPostCallback callback, void* context)
 // Returns true if compilation succeeds
 bool SCiOSSclangCompileLibrary(void);
 
+// Recompile the class library (⌘K equivalent)
+// Returns true if recompilation succeeds
+bool SCiOSSclangRecompileLibrary(void);
+
 // Check if class library is compiled
 bool SCiOSSclangIsLibraryCompiled(void);
 
 // Execute SuperCollider code string
 // Returns true if execution was initiated (does not wait for completion)
 bool SCiOSSclangInterpret(const char* code);
+
+// Add a directory to the class library include paths (for user extensions)
+// Must be called before SCiOSSclangCompileLibrary
+void SCiOSSclangAddIncludePath(const char* path);
 
 // Shut down sclang runtime
 void SCiOSSclangShutdown(void);

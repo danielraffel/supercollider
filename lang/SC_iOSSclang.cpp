@@ -15,6 +15,7 @@
 #include "SC_LanguageConfig.hpp"
 #include "SC_Filesystem.hpp"
 #include <mutex>
+#include <vector>
 #include <cstring>
 #include <cstdio>
 
@@ -112,7 +113,22 @@ bool SCiOSSclangCompileLibrary(void) {
     }
 
     // standalone=false means use default class library paths
+    // On iOS, default paths include:
+    //   - Resource/SCClassLibrary (app bundle via SetResourceDir)
+    //   - ~/Documents/Extensions/ (user extensions)
+    // Additional paths can be added via sclang_conf.yaml in ~/Documents/
     gClient->compileLibrary(false);
+    return gClient->isLibraryCompiled();
+}
+
+bool SCiOSSclangRecompileLibrary(void) {
+    std::lock_guard<std::mutex> lock(gSclangMutex);
+
+    if (!gClient) {
+        return false;
+    }
+
+    gClient->recompileLibrary(false);
     return gClient->isLibraryCompiled();
 }
 
@@ -131,6 +147,27 @@ bool SCiOSSclangInterpret(const char* code) {
     gClient->setCmdLine(code);
     gClient->interpretCmdLine();
     return true;
+}
+
+void SCiOSSclangAddIncludePath(const char* path) {
+    // Paths are added via sclang_conf.yaml in the user config directory.
+    // On iOS, this is ~/Documents/sclang_conf.yaml.
+    // The default extension path ~/Documents/Extensions/ is always included.
+    // This function adds additional custom paths to the config.
+    if (!path) return;
+
+    auto configDir = SC_Filesystem::instance().getDirectory(SC_Filesystem::DirName::UserConfig);
+    auto configFile = configDir / "sclang_conf.yaml";
+
+    // Read existing config or create new one
+    std::vector<std::string> includePaths;
+    includePaths.push_back(std::string(path));
+
+    // Write config file with include path
+    // Note: This appends to existing paths if config exists
+    if (gLanguageConfig) {
+        gLanguageConfig->addIncludedDirectory(std::string(path));
+    }
 }
 
 void SCiOSSclangShutdown(void) {

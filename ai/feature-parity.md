@@ -50,25 +50,25 @@
 - [x] Execute simple SC code on iOS: `{ SinOsc.ar(440) }.play` → verified audio output on simulator
 - [x] Profile sclang startup time and memory usage on iOS (target: <3s boot, <100MB RAM) — 148ms compile, 34.8 MB delta
 - [x] Document: what works, what doesn't, known limitations — ai/phase6-sclang-findings.md
-- [ ] Support `startup.scd` loaded from Documents directory
-- [ ] Support class library recompile on device (⌘K equivalent)
-- [ ] Sandbox-aware extension/class discovery (scan Documents/Extensions/ for user classes)
+- [x] Support `startup.scd` loaded from Documents directory — iPhonePlatform.sc calls loadStartupFiles; defaultStartupFile is ~/Documents/startup.scd
+- [x] Support class library recompile on device (⌘K equivalent) — SCiOSSclangRecompileLibrary() API added
+- [x] Sandbox-aware extension/class discovery (scan Documents/Extensions/ for user classes) — defaultUserExtensionDirectory returns ~/Documents/Extensions/, auto-included in class library search
 
 ### A.3 libsndfile Decision & Integration
-- [ ] Evaluate cross-compiling libsndfile for iOS arm64 (already in external_libraries/)
-- [ ] If viable: re-enable `NO_LIBSNDFILE=OFF` for iOS, build libsndfile as static lib
-- [ ] If not viable: implement backend using Apple's ExtAudioFile/AVAudioFile APIs
-- [ ] Re-enable DiskIO_UGens plugin once soundfile support is available
+- [x] Evaluate cross-compiling libsndfile for iOS arm64 (already in external_libraries/) — VIABLE: compiles cleanly as static lib via FetchContent
+- [x] If viable: re-enable `NO_LIBSNDFILE=OFF` for iOS, build libsndfile as static lib — done: FetchContent builds libsndfile 1.2.2 from source, DiskIO_UGens now included (25→26 plugins)
+- [x] If not viable: implement backend using Apple's ExtAudioFile/AVAudioFile APIs — N/A (libsndfile works)
+- [x] Re-enable DiskIO_UGens plugin once soundfile support is available — DiskIn, DiskOut, VDiskIn now linked into libscsynth
 - [ ] Verify: Buffer.read, Buffer.write, SoundFile primitives work on iOS
 - [ ] Verify: Recorder workflow works end-to-end on iOS
 
 ### A.4 Dependency Audit
-- [ ] Verify boost headers compile cleanly for iOS in language-enabled profile
-- [ ] Verify yaml-cpp compiles for iOS (used by sclang for config)
-- [ ] Verify oscpack compiles for iOS (should already work)
-- [ ] Evaluate FFTW vs Accelerate.framework vDSP for FFT on iOS
-- [ ] Evaluate readline alternative for sclang (or disable REPL — editor replaces it)
-- [ ] Document: final dependency manifest for iOS build
+- [x] Verify boost headers compile cleanly for iOS in language-enabled profile — boost_thread, boost_program_options, boost_regex all compile
+- [x] Verify yaml-cpp compiles for iOS (used by sclang for config) — compiles as static lib
+- [x] Verify oscpack compiles for iOS (should already work) — built into libscsynth
+- [x] Evaluate FFTW vs Accelerate.framework vDSP for FFT on iOS — using vDSP (Accelerate.framework available on iOS arm64)
+- [x] Evaluate readline alternative for sclang (or disable REPL — editor replaces it) — readline disabled (not found); editor UI replaces REPL
+- [x] Document: final dependency manifest for iOS build — boost (thread/program_options/regex), yaml-cpp, tlsf, libsndfile (FetchContent), nova-simd (headers), Accelerate.framework (vDSP FFT)
 
 ---
 
