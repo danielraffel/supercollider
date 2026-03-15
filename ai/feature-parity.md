@@ -179,8 +179,8 @@
 > Carries forward: work-items Phase 7.2, 7.4
 
 ### C.1 Code Editor
-- [x] SC code editor with syntax highlighting (Swift/UIKit text view) — TextEditor with monospaced font; syntax highlighting deferred
-- [ ] SC keyword highlighting (SinOsc, Pbind, SynthDef, var, arg, etc.)
+- [x] SC code editor with syntax highlighting (Swift/UIKit text view) — UITextView wrapper with NSAttributedString highlighting
+- [x] SC keyword highlighting (SinOsc, Pbind, SynthDef, var, arg, etc.) — SCSyntaxHighlighter: keywords purple, classes cyan, numbers orange, strings green, comments gray, symbols yellow
 - [ ] Bracket matching and auto-indent
 - [ ] Line numbers
 - [x] Code evaluation: execute selected text or current block (⌘+Return equivalent) — ⌘+Return keyboard shortcut wired to evaluate

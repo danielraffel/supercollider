@@ -45,15 +45,11 @@ struct EditorView: View {
 
             Divider()
 
-            // Code editor
-            TextEditor(text: $app.codeText)
-                .font(.system(.body, design: .monospaced))
-                .autocapitalization(.none)
-                .disableAutocorrection(true)
-                .focused($editorFocused)
-                .scrollContentBackground(.hidden)
-                .background(Color(.systemBackground))
-                .padding(.horizontal, 4)
+            // Code editor with syntax highlighting
+            CodeTextView(text: $app.codeText, onEvaluate: {
+                app.evaluateSelection()
+            })
+            .background(Color(.systemBackground))
         }
     }
 }
