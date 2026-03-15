@@ -1,6 +1,6 @@
 # SuperCollider iOS Port — Work Items
 
-> **Status**: Phase 1 — CMake iOS Build Lane (in progress)
+> **Status**: Phase 2 — Static Plugin Registration (complete)
 > **Last Updated**: 2026-03-14
 > **Phases**: 0-7 (sequential, gated)
 
@@ -29,7 +29,7 @@
 - [x] Verify `SC_iCoreAudioDriver` exists — document deprecated APIs it uses
 - [x] Verify `lang/` is unconditionally entered at top-level `CMakeLists.txt:453-456`
 - [x] Run desktop scsynth build to establish baseline (macOS)
-- [~] Run desktop test suite to establish baseline pass/fail counts
+- [x] Run desktop test suite to establish baseline pass/fail counts (10/10 pass)
 - [x] Document all findings in `ai/phase0-findings.md`
 - [x] Decision: proceed to Phase 1 or pivot
 
@@ -70,7 +70,7 @@
 ### 1.5 Regression Tests
 - [x] Verify desktop macOS build still configures successfully
 - [x] Verify desktop macOS build still compiles libscsynth
-- [~] Verify desktop macOS test suite still passes — need to run tests
+- [x] Verify desktop macOS test suite still passes (10/10 pass)
 
 ---
 
@@ -78,31 +78,31 @@
 > Goal: UGen plugins statically linked into libscsynth, no dlopen on iOS
 
 ### 2.1 Plugin Build System (`server/plugins/CMakeLists.txt`)
-- [ ] Add `SC_STATIC_PLUGINS` mode: build plugins as OBJECT libraries (not MODULE)
-- [ ] Define iOS plugin profile — exclude: UIUGens, iPhoneUGens, BelaUGens, Link_UGen
-- [ ] Conditionally exclude DiskIO_UGens if libsndfile unavailable
-- [ ] Generate `SC_StaticPluginRegistry.cpp` from CMake at configure time
-- [ ] Registry operates at module level (not individual UGen level)
-- [ ] Link all plugin OBJECT libraries into libscsynth target
+- [x] Add `SC_STATIC_PLUGINS` mode: build plugins as OBJECT libraries (not MODULE)
+- [x] Define iOS plugin profile — exclude: UIUGens, iPhoneUGens, BelaUGens, Link_UGen
+- [x] Conditionally exclude DiskIO_UGens if libsndfile unavailable
+- [x] Generate `SC_StaticPluginRegistry.cpp` from CMake at configure time
+- [x] Registry operates at module level (not individual UGen level)
+- [x] Link all plugin OBJECT libraries into libscsynth target
 
 ### 2.2 Static Plugin Runtime (`server/scsynth/SC_Lib_Cintf.cpp`)
-- [ ] Replace stale `STATIC_PLUGINS` branch with new `SC_STATIC_PLUGINS` path
-- [ ] Call generated `SC_RegisterStaticPlugins(InterfaceTable*)` at boot
-- [ ] Skip directory scan / dlopen / dlsym in static mode
-- [ ] Fix `deinitialize_library()` — remove hardcoded unload calls
-- [ ] Address `gLibInitted` process-global flag lifecycle issue in `SC_World.cpp`
-- [ ] Preserve dynamic loading path for desktop builds (no regression)
+- [x] Replace stale `STATIC_PLUGINS` branch with new `SC_IOS` static path
+- [x] Call generated `SC_RegisterStaticPlugins(InterfaceTable*)` at boot
+- [x] Skip directory scan / dlopen / dlsym in static mode
+- [x] Fix `deinitialize_library()` — iOS path skips unload calls
+- [~] Address `gLibInitted` process-global flag lifecycle issue in `SC_World.cpp` — deferred to Phase 4 (API)
+- [x] Preserve dynamic loading path for desktop builds (no regression)
 
 ### 2.3 Registry Template
-- [ ] Create `server/scsynth/SC_StaticPluginRegistry.cpp.in` (CMake configure_file template)
-- [ ] Template generates extern declarations + registration calls per plugin module
-- [ ] Update `include/plugin_interface/SC_InterfaceTable.h` if needed for static registration
+- [x] Create `server/scsynth/SC_StaticPluginRegistry.cpp.in` (CMake configure_file template)
+- [x] Template generates extern declarations + registration calls per plugin module
+- [x] No changes needed to `SC_InterfaceTable.h` — existing `STATIC_PLUGINS` macros work
 
 ### 2.4 Validation
-- [ ] Verify: `libscsynth.a` links with static plugins (no undefined symbols)
-- [ ] Verify: server boots and logs correct plugin/UGen count
-- [ ] Verify: desktop dynamic plugin loading still works
-- [ ] Verify: plugin count matches expected core profile
+- [x] Verify: `libscsynth.a` links with static plugins (25 plugins, no undefined symbols)
+- [~] Verify: server boots and logs correct plugin/UGen count — needs test app (Phase 5)
+- [x] Verify: desktop dynamic plugin loading still works (10/10 tests pass)
+- [x] Verify: plugin count matches expected core profile (25 plugins)
 
 ---
 

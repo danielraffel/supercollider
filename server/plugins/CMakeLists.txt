@@ -49,8 +49,146 @@ set(plugin_sources
 	UnpackFFTUGens.cpp
 )
 
+# Map from source file name to PluginLoad() name used in the source code
+set(PLUGIN_LOAD_NAMES
+	BinaryOpUGens:BinaryOp
+	ChaosUGens:Chaos
+	DelayUGens:Delay
+	DemandUGens:Demand
+	DemoUGens:DemoUGens
+	DynNoiseUGens:DynNoise
+	FilterUGens:Filter
+	GendynUGens:Gendyn
+	GrainUGens:Grain
+	IOUGens:IO
+	LFUGens:LF
+	MulAddUGens:MulAdd
+	NoiseUGens:Noise
+	OscUGens:Osc
+	PanUGens:Pan
+	PhysicalModelingUGens:PhysicalModeling
+	ReverbUGens:Reverb
+	TestUGens:Test
+	TriggerUGens:Trigger
+	UnaryOpUGens:UnaryOp
+	UnpackFFTUGens:UnpackFFTUGens
+)
+
 set(plugins "")
 set(supernova_plugins "")
+
+if(SC_IOS)
+	# iOS: build plugins as OBJECT libraries, statically linked into libscsynth
+	set(sc_ios_static_plugins "")
+	set(sc_ios_plugin_load_names "")
+
+	foreach(plugin ${plugin_sources})
+		string(REPLACE .cpp "" plugin_name ${plugin})
+		add_library(${plugin_name} OBJECT ${plugin})
+		target_compile_definitions(${plugin_name} PRIVATE STATIC_PLUGINS)
+		target_link_libraries(${plugin_name} PRIVATE Boost::headers)
+		if(NOVA_SIMD)
+			target_include_directories(${plugin_name} PUBLIC ${CMAKE_SOURCE_DIR}/external_libraries/nova-simd)
+			target_compile_definitions(${plugin_name} PUBLIC NOVA_SIMD)
+		endif()
+		list(APPEND sc_ios_static_plugins ${plugin_name})
+
+		# Find the load name for this plugin
+		foreach(mapping ${PLUGIN_LOAD_NAMES})
+			string(REPLACE ":" ";" mapping_list ${mapping})
+			list(GET mapping_list 0 map_source)
+			list(GET mapping_list 1 map_load_name)
+			if(map_source STREQUAL plugin_name)
+				list(APPEND sc_ios_plugin_load_names ${map_load_name})
+			endif()
+		endforeach()
+	endforeach()
+
+	# FFT plugins as OBJECT libraries
+	add_library(FFT_UGens OBJECT
+		FFTInterfaceTable.cpp FFT_UGens.cpp PV_UGens.cpp PartitionedConvolution.cpp
+		${scplugin_common_sources}
+	)
+	target_compile_definitions(FFT_UGens PRIVATE STATIC_PLUGINS)
+	target_link_libraries(FFT_UGens PRIVATE ${PTHREADS_LIBRARY} ${MATH_LIBRARY} Boost::headers)
+	if(APPLE)
+		target_link_libraries(FFT_UGens PRIVATE "-framework Accelerate")
+	endif()
+	if(NOVA_SIMD)
+		target_include_directories(FFT_UGens PUBLIC ${CMAKE_SOURCE_DIR}/external_libraries/nova-simd)
+		target_compile_definitions(FFT_UGens PUBLIC NOVA_SIMD)
+	endif()
+	list(APPEND sc_ios_static_plugins FFT_UGens)
+	list(APPEND sc_ios_plugin_load_names FFT_UGens)
+
+	add_library(PV_ThirdParty OBJECT
+		Convolution.cpp FFT2InterfaceTable.cpp FeatureDetection.cpp PV_ThirdParty.cpp
+		${scplugin_common_sources}
+	)
+	target_compile_definitions(PV_ThirdParty PRIVATE STATIC_PLUGINS)
+	target_link_libraries(PV_ThirdParty PRIVATE ${PTHREADS_LIBRARY} ${MATH_LIBRARY} Boost::headers)
+	if(APPLE)
+		target_link_libraries(PV_ThirdParty PRIVATE "-framework Accelerate")
+	endif()
+	if(NOVA_SIMD)
+		target_include_directories(PV_ThirdParty PUBLIC ${CMAKE_SOURCE_DIR}/external_libraries/nova-simd)
+		target_compile_definitions(PV_ThirdParty PUBLIC NOVA_SIMD)
+	endif()
+	list(APPEND sc_ios_static_plugins PV_ThirdParty)
+	list(APPEND sc_ios_plugin_load_names PV_ThirdParty)
+
+	add_library(ML_UGens OBJECT
+		ML.cpp Loudness.cpp BeatTrack.cpp Onsets.cpp onsetsds.c
+		KeyTrack.cpp MFCC.cpp BeatTrack2.cpp ML_SpecStats.cpp
+		${scplugin_common_sources}
+	)
+	target_compile_definitions(ML_UGens PRIVATE STATIC_PLUGINS)
+	target_link_libraries(ML_UGens PRIVATE ${PTHREADS_LIBRARY} ${MATH_LIBRARY} Boost::headers)
+	if(APPLE)
+		target_link_libraries(ML_UGens PRIVATE "-framework Accelerate")
+	endif()
+	if(NOVA_SIMD)
+		target_include_directories(ML_UGens PUBLIC ${CMAKE_SOURCE_DIR}/external_libraries/nova-simd)
+		target_compile_definitions(ML_UGens PUBLIC NOVA_SIMD)
+	endif()
+	list(APPEND sc_ios_static_plugins ML_UGens)
+	list(APPEND sc_ios_plugin_load_names ML_UGens)
+
+	# DiskIO if sndfile available
+	if(NOT NO_LIBSNDFILE AND SNDFILE_FOUND)
+		add_library(DiskIO_UGens OBJECT DiskIO_UGens.cpp)
+		target_compile_definitions(DiskIO_UGens PRIVATE STATIC_PLUGINS)
+		target_link_libraries(DiskIO_UGens PRIVATE Boost::headers)
+		target_include_directories(DiskIO_UGens PUBLIC ${SNDFILE_INCLUDE_DIR})
+		if(NOVA_SIMD)
+			target_include_directories(DiskIO_UGens PUBLIC ${CMAKE_SOURCE_DIR}/external_libraries/nova-simd)
+			target_compile_definitions(DiskIO_UGens PUBLIC NOVA_SIMD)
+		endif()
+		list(APPEND sc_ios_static_plugins DiskIO_UGens)
+		list(APPEND sc_ios_plugin_load_names DiskIO)
+	endif()
+
+	# Generate static plugin registry
+	set(SC_STATIC_PLUGIN_DECLARATIONS "")
+	set(SC_STATIC_PLUGIN_CALLS "")
+	foreach(load_name ${sc_ios_plugin_load_names})
+		string(APPEND SC_STATIC_PLUGIN_DECLARATIONS "extern void ${load_name}_Load(InterfaceTable* inTable);\n")
+		string(APPEND SC_STATIC_PLUGIN_CALLS "    ${load_name}_Load(inTable);\n")
+	endforeach()
+
+	configure_file(
+		${CMAKE_SOURCE_DIR}/server/scsynth/SC_StaticPluginRegistry.cpp.in
+		${CMAKE_BINARY_DIR}/server/scsynth/SC_StaticPluginRegistry.cpp
+		@ONLY
+	)
+
+	# Export for libscsynth to link
+	set(SC_IOS_STATIC_PLUGIN_OBJECTS ${sc_ios_static_plugins} PARENT_SCOPE)
+	set(SC_IOS_STATIC_PLUGIN_REGISTRY ${CMAKE_BINARY_DIR}/server/scsynth/SC_StaticPluginRegistry.cpp PARENT_SCOPE)
+
+	message(STATUS "iOS static plugins: ${sc_ios_plugin_load_names}")
+	return() # Skip all desktop plugin logic below
+endif() # SC_IOS
 
 set(CMAKE_SHARED_MODULE_PREFIX "")
 set(CMAKE_SHARED_MODULE_SUFFIX ".scx")

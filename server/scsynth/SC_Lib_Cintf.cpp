@@ -173,8 +173,11 @@ void initialize_library(const char* uGensPluginPath) {
     initMiscCommands();
 
 #if defined(SC_IOS)
-    // On iOS, plugins are statically linked via generated registry (Phase 2).
+    // On iOS, plugins are statically linked via generated registry.
     // No dynamic loading — dlopen is not allowed on iOS.
+    extern void SC_RegisterStaticPlugins(InterfaceTable* inTable);
+    SC_RegisterStaticPlugins(&gInterfaceTable);
+    return;
 #else // !SC_IOS
 
 #ifdef STATIC_PLUGINS

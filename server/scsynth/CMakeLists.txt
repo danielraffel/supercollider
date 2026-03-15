@@ -178,6 +178,18 @@ target_compile_definitions(libscsynth PUBLIC  SC_MEMORY_ALIGNMENT=32)
 
 if(SC_IOS)
     target_compile_definitions(libscsynth PUBLIC SC_IOS=1)
+
+    # Link static plugin OBJECT libraries into libscsynth
+    if(SC_IOS_STATIC_PLUGIN_OBJECTS)
+        foreach(plugin_obj ${SC_IOS_STATIC_PLUGIN_OBJECTS})
+            target_sources(libscsynth PRIVATE $<TARGET_OBJECTS:${plugin_obj}>)
+        endforeach()
+    endif()
+
+    # Add the generated static plugin registry
+    if(SC_IOS_STATIC_PLUGIN_REGISTRY)
+        target_sources(libscsynth PRIVATE ${SC_IOS_STATIC_PLUGIN_REGISTRY})
+    endif()
 endif()
 
 target_link_libraries(libscsynth tlsf Boost::sync)
