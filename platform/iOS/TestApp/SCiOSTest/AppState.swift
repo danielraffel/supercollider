@@ -59,6 +59,10 @@ class AppState: ObservableObject {
         if started {
             serverRunning = true
             startCAPIStatusUpdates()
+
+            // Create default group (Group 1) — required for /s_new to work
+            // /g_new groupID=1 addAction=0 targetID=0 (add to head of root)
+            let _ = sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
             appendPost("Audio engine running ✓\n")
         } else {
             appendPost("ERROR: Audio engine failed to start\n")
@@ -129,66 +133,31 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Automated self-test: play a sustained tone to verify audio pipeline
+    /// Quick self-test: verify audio works
     private func runSelfTest() {
-        appendPost("Running audio self-test...\n")
+        appendPost("Self-test: playing test tone...\n")
 
-        // Use the C API to send a direct OSC /s_new for the default synth
-        // This bypasses sclang entirely to test the audio pipeline
-        let sineDef = SynthDefBuilder.simpleSine(name: "sc_test_tone")
-        let _ = sendOSC(OSCMessage.dRecv(sineDef))
+        // Test via sclang — simple one-liner that won't cause parse errors
+        let _ = sclang.interpret("x = { SinOsc.ar(880, 0, 0.2) }.play;")
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self else { return }
-            // Create a test synth via C API OSC
-            let msg = OSCMessage.sNew("sc_test_tone", nodeID: 9999, addAction: 1, targetID: 0,
-                                       args: ["freq", Float(880.0), "amp", Float(0.2)])
-            let _ = self.sendOSC(msg)
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let synths = self.numSynths
-                let ugens = self.numUGens
-                if synths > 0 {
-                    self.appendPost("C API audio test PASSED ✓ (synths: \(synths), ugens: \(ugens))\n")
-                    // Free the test synth after 1 second
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        let _ = self.sendOSC(OSCMessage.nFree(9999))
-                        self.appendPost("Test tone freed.\n")
-                    }
-                } else {
-                    self.appendPost("C API audio test: synths=\(synths) ugens=\(ugens)\n")
-                    self.appendPost("⚠ Audio may not be working\n")
-                }
-
-                // Now test sclang evaluation path
-                self.appendPost("Testing sclang path...\n")
-                let ok = self.sclang.interpret("""
-                    "sclang interpret works ✓".postln;
-                    // Try to create a synth via sclang
-                    x = { SinOsc.ar(660, 0, 0.2) }.play;
-                    "sclang synth created".postln;
-                """)
-                if !ok {
-                    self.appendPost("⚠ sclang interpret failed\n")
-                }
-
-                // Check synth count after sclang creates synth
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    let s2 = self.numSynths
-                    self.appendPost("After sclang play: synths=\(s2)\n")
-                    if s2 > 0 {
-                        self.appendPost("🎉 AUDIO WORKS via sclang! 🎉\n")
-                        // Free the test synths
-                        let _ = self.sclang.interpret("x.free;")
-                        let _ = self.sendOSC(OSCMessage.nFree(9999))
-                    }
-                    self.appendPost("Ready! Select code and tap Evaluate.\n")
-                }
+            let synths = self.numSynths
+            if synths > 0 {
+                self.appendPost("✓ Audio works! (synths: \(synths))\n")
+            } else {
+                self.appendPost("Self-test: synths=\(synths) — check Post for errors\n")
             }
+
+            // Free test tone after 2 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                let _ = self.sclang.interpret("x.free;")
+            }
+            self.appendPost("Ready! Select code and tap Evaluate.\n")
         }
     }
 
-    // MARK: - OSC Send (for C API direct sends)
+    // MARK: - OSC Send (C API direct)
 
     func sendOSC(_ data: Data) -> Bool {
         guard let server = server else { return false }
@@ -244,8 +213,16 @@ class AppState: ObservableObject {
     }
 
     func stopAll() {
-        guard sclangReady else { return }
-        let _ = sclang.interpret("CmdPeriod.run;")
+        // Free all synths via sclang CmdPeriod
+        if sclangReady {
+            let _ = sclang.interpret("CmdPeriod.run;")
+        }
+        // Also free all nodes in default group via C API OSC
+        // /g_freeAll groupID=1 (free all children of default group)
+        let _ = sendOSC(OSCMessage.build("/g_freeAll", [Int32(1)]))
+        // Recreate default group in case it was freed
+        let _ = sendOSC(OSCMessage.build("/clearSched", []))
+        let _ = sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
         appendPost("⏹ stopped\n")
     }
 
