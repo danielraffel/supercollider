@@ -59,11 +59,13 @@ class AppState: ObservableObject {
         if started {
             serverRunning = true
             startCAPIStatusUpdates()
-
-            // Create default group (Group 1) — required for /s_new to work
-            // /g_new groupID=1 addAction=0 targetID=0 (add to head of root)
-            let _ = sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
             appendPost("Audio engine running ✓\n")
+
+            // Create default group after a short delay (server needs to process first tick)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                // /g_new groupID=1 addAction=0(addToHead) targetID=0(root)
+                let _ = self?.sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
+            }
         } else {
             appendPost("ERROR: Audio engine failed to start\n")
             return
@@ -213,16 +215,14 @@ class AppState: ObservableObject {
     }
 
     func stopAll() {
-        // Free all synths via sclang CmdPeriod
+        // Free ALL nodes on server via /g_deepFree on root group (0)
+        let _ = sendOSC(OSCMessage.build("/g_deepFree", [Int32(0)]))
+        // Recreate default group
+        let _ = sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
+        // Also run CmdPeriod in sclang to clean up routines/patterns
         if sclangReady {
             let _ = sclang.interpret("CmdPeriod.run;")
         }
-        // Also free all nodes in default group via C API OSC
-        // /g_freeAll groupID=1 (free all children of default group)
-        let _ = sendOSC(OSCMessage.build("/g_freeAll", [Int32(1)]))
-        // Recreate default group in case it was freed
-        let _ = sendOSC(OSCMessage.build("/clearSched", []))
-        let _ = sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
         appendPost("⏹ stopped\n")
     }
 
