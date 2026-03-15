@@ -115,6 +115,14 @@ if(APPLE AND NOT SC_IOS)
 elseif(SC_IOS)
 	# Exclude macOS filesystem backend, use iPhone backend only
 	list(REMOVE_ITEM scsynth_sources ${CMAKE_SOURCE_DIR}/common/SC_Filesystem_macos.cpp)
+
+	# Add iOS-specific sources
+	list(APPEND scsynth_sources
+		SC_iOSAudioSession.mm
+	)
+	set_source_files_properties(SC_iOSAudioSession.mm
+		PROPERTIES COMPILE_FLAGS "-x objective-c++ -fobjc-arc"
+	)
 endif()
 
 if(WIN32)

@@ -1917,9 +1917,359 @@ OSStatus AddDeviceListeners(AudioDeviceID inDevice, void* inClientData) {
 // Audio driver (CoreAudioIPHONE)
 
 #if SC_AUDIO_API == SC_AUDIO_API_COREAUDIOIPHONE
-SC_iCoreAudioDriver::SC_iCoreAudioDriver(World* inWorld): SC_AudioDriver(inWorld) { receivedIn = 0; }
 
-SC_iCoreAudioDriver::~SC_iCoreAudioDriver() {}
+#ifdef SC_IOS
+// Modern iOS audio driver using AVAudioSession + RemoteIO AudioUnit
+#include "SC_iOSAudioSession.h"
+
+SC_iCoreAudioDriver::SC_iCoreAudioDriver(World* inWorld): SC_AudioDriver(inWorld) {
+    mAudioUnit = nullptr;
+    mSessionManager = nullptr;
+}
+
+SC_iCoreAudioDriver::~SC_iCoreAudioDriver() {
+    if (mAudioUnit) {
+        AudioOutputUnitStop(mAudioUnit);
+        AudioUnitUninitialize(mAudioUnit);
+        AudioComponentInstanceDispose(mAudioUnit);
+        mAudioUnit = nullptr;
+    }
+    delete mSessionManager;
+    mSessionManager = nullptr;
+}
+
+static OSStatus iOSRenderCallback(void* inRefCon, AudioUnitRenderActionFlags* ioActionFlags,
+                                   const AudioTimeStamp* inTimeStamp, UInt32 inBusNumber,
+                                   UInt32 inNumberFrames, AudioBufferList* ioData) {
+    SC_iCoreAudioDriver* driver = (SC_iCoreAudioDriver*)inRefCon;
+
+    // Get input if available
+    AudioBufferList* inputData = nullptr;
+    if (driver->mInputEnabled && driver->mAudioUnit) {
+        OSStatus err = AudioUnitRender(driver->mAudioUnit, ioActionFlags, inTimeStamp,
+                                        1, // input bus
+                                        inNumberFrames, driver->mInputBufferList);
+        if (err == noErr) {
+            inputData = driver->mInputBufferList;
+        }
+    }
+
+    int64 oscTime = GetCurrentOSCTime();
+    driver->Run(inputData, ioData, oscTime);
+
+    return noErr;
+}
+
+bool SC_iCoreAudioDriver::DriverSetup(int* outNumSamplesPerCallback, double* outSampleRate) {
+    // Configure and activate AVAudioSession
+    mSessionManager = new SCiOSAudioSessionManager();
+
+    SCiOSAudioSessionManager::Config sessionConfig;
+    sessionConfig.preferredSampleRate = mPreferredSampleRate ? mPreferredSampleRate : 48000.0;
+    sessionConfig.enableInput = (mWorld->mNumInputs > 0);
+    mInputEnabled = sessionConfig.enableInput;
+
+    if (mPreferredHardwareBufferFrameSize) {
+        sessionConfig.preferredBufferDuration = (double)mPreferredHardwareBufferFrameSize / sessionConfig.preferredSampleRate;
+    }
+
+    if (!mSessionManager->configure(sessionConfig)) {
+        scprintf("SC iOS: failed to configure audio session\n");
+        return false;
+    }
+
+    if (!mSessionManager->activate()) {
+        scprintf("SC iOS: failed to activate audio session\n");
+        return false;
+    }
+
+    // Set up interruption handling
+    mSessionManager->setInterruptionCallback([this](bool began) {
+        if (began) {
+            if (mAudioUnit) AudioOutputUnitStop(mAudioUnit);
+        } else {
+            if (mAudioUnit) AudioOutputUnitStart(mAudioUnit);
+        }
+    });
+
+    // Set up route change handling
+    mSessionManager->setRouteChangeCallback([this]() {
+        // Log the change, audio unit should adapt automatically
+        auto cfg = mSessionManager->getRuntimeConfig();
+        scprintf("SC iOS: route change — SR=%.0f, buf=%d\n", cfg.actualSampleRate, cfg.actualBufferSize);
+    });
+
+    auto runtimeCfg = mSessionManager->getRuntimeConfig();
+    *outSampleRate = runtimeCfg.actualSampleRate;
+    *outNumSamplesPerCallback = runtimeCfg.actualBufferSize;
+
+    // Create RemoteIO AudioUnit
+    AudioComponentDescription desc = {};
+    desc.componentType = kAudioUnitType_Output;
+    desc.componentSubType = kAudioUnitSubType_RemoteIO;
+    desc.componentManufacturer = kAudioUnitManufacturer_Apple;
+
+    AudioComponent comp = AudioComponentFindNext(nullptr, &desc);
+    if (!comp) {
+        scprintf("SC iOS: failed to find RemoteIO component\n");
+        return false;
+    }
+
+    OSStatus err = AudioComponentInstanceNew(comp, &mAudioUnit);
+    if (err != noErr) {
+        scprintf("SC iOS: failed to create RemoteIO instance: %d\n", (int)err);
+        return false;
+    }
+
+    // Enable input if needed
+    if (mInputEnabled) {
+        UInt32 enableInput = 1;
+        err = AudioUnitSetProperty(mAudioUnit, kAudioOutputUnitProperty_EnableIO,
+                                    kAudioUnitScope_Input, 1,
+                                    &enableInput, sizeof(enableInput));
+        if (err != noErr) {
+            scprintf("SC iOS: warning: could not enable input: %d\n", (int)err);
+            mInputEnabled = false;
+        }
+    }
+
+    // Set stream format: Float32, non-interleaved
+    AudioStreamBasicDescription streamFormat = {};
+    streamFormat.mSampleRate = runtimeCfg.actualSampleRate;
+    streamFormat.mFormatID = kAudioFormatLinearPCM;
+    streamFormat.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsNonInterleaved | kAudioFormatFlagsNativeEndian;
+    streamFormat.mBytesPerPacket = sizeof(Float32);
+    streamFormat.mFramesPerPacket = 1;
+    streamFormat.mBytesPerFrame = sizeof(Float32);
+    streamFormat.mChannelsPerFrame = 2; // stereo output
+    streamFormat.mBitsPerChannel = 32;
+
+    // Set output format
+    err = AudioUnitSetProperty(mAudioUnit, kAudioUnitProperty_StreamFormat,
+                                kAudioUnitScope_Input, 0, // output bus input scope
+                                &streamFormat, sizeof(streamFormat));
+    if (err != noErr) {
+        scprintf("SC iOS: failed to set output format: %d\n", (int)err);
+        return false;
+    }
+
+    // Set input format (mono or stereo depending on hardware)
+    if (mInputEnabled) {
+        AudioStreamBasicDescription inputFormat = streamFormat;
+        inputFormat.mChannelsPerFrame = runtimeCfg.inputChannels > 0 ? runtimeCfg.inputChannels : 1;
+
+        err = AudioUnitSetProperty(mAudioUnit, kAudioUnitProperty_StreamFormat,
+                                    kAudioUnitScope_Output, 1, // input bus output scope
+                                    &inputFormat, sizeof(inputFormat));
+        if (err != noErr) {
+            scprintf("SC iOS: warning: could not set input format: %d\n", (int)err);
+            mInputEnabled = false;
+        }
+    }
+
+    // Allocate input buffer list
+    mInputBufferList = nullptr;
+    if (mInputEnabled) {
+        int inputChans = runtimeCfg.inputChannels > 0 ? runtimeCfg.inputChannels : 1;
+        size_t bufListSize = sizeof(AudioBufferList) + (inputChans - 1) * sizeof(AudioBuffer);
+        mInputBufferList = (AudioBufferList*)calloc(1, bufListSize);
+        mInputBufferList->mNumberBuffers = inputChans;
+        for (int i = 0; i < inputChans; i++) {
+            mInputBufferList->mBuffers[i].mNumberChannels = 1;
+            mInputBufferList->mBuffers[i].mDataByteSize = runtimeCfg.actualBufferSize * sizeof(Float32);
+            mInputBufferList->mBuffers[i].mData = calloc(runtimeCfg.actualBufferSize, sizeof(Float32));
+        }
+    }
+
+    // Set render callback
+    AURenderCallbackStruct renderCallback = {};
+    renderCallback.inputProc = iOSRenderCallback;
+    renderCallback.inputProcRefCon = this;
+
+    err = AudioUnitSetProperty(mAudioUnit, kAudioUnitProperty_SetRenderCallback,
+                                kAudioUnitScope_Input, 0, // output bus
+                                &renderCallback, sizeof(renderCallback));
+    if (err != noErr) {
+        scprintf("SC iOS: failed to set render callback: %d\n", (int)err);
+        return false;
+    }
+
+    // Initialize the audio unit
+    err = AudioUnitInitialize(mAudioUnit);
+    if (err != noErr) {
+        scprintf("SC iOS: failed to initialize audio unit: %d\n", (int)err);
+        return false;
+    }
+
+    if (mWorld->mVerbosity >= 0) {
+        scprintf("SC iOS: audio driver setup complete (SR=%.0f, buf=%d, in=%s)\n",
+                 runtimeCfg.actualSampleRate, runtimeCfg.actualBufferSize,
+                 mInputEnabled ? "yes" : "no");
+    }
+
+    return true;
+}
+
+bool SC_iCoreAudioDriver::DriverStart() {
+    if (mWorld->mVerbosity >= 0) {
+        scprintf("SC iOS: starting audio\n");
+    }
+
+    OSStatus err = AudioOutputUnitStart(mAudioUnit);
+    if (err != noErr) {
+        scprintf("SC iOS: failed to start audio unit: %d\n", (int)err);
+        return false;
+    }
+
+    if (mWorld->mVerbosity >= 0) {
+        scprintf("SC iOS: audio started\n");
+    }
+    return true;
+}
+
+bool SC_iCoreAudioDriver::DriverStop() {
+    if (mWorld->mVerbosity >= 0) {
+        scprintf("SC iOS: stopping audio\n");
+    }
+
+    if (mAudioUnit) {
+        AudioOutputUnitStop(mAudioUnit);
+    }
+
+    if (mWorld->mVerbosity >= 0) {
+        scprintf("SC iOS: audio stopped\n");
+    }
+    return true;
+}
+
+void SC_iCoreAudioDriver::Run(const AudioBufferList* inInputData, AudioBufferList* outOutputData, int64 oscTime) {
+    int64 systemTimeBefore = GetMicroseconds();
+    World* world = mWorld;
+
+    try {
+        int numSamplesPerCallback = NumSamplesPerCallback();
+        mOSCbuftime = oscTime;
+
+        sc_SetDenormalFlags();
+
+        mFromEngine.Free();
+        mToEngine.Perform();
+        mOscPacketsToEngine.Perform();
+
+        int bufFrames = world->mBufLength;
+        int numBufs = numSamplesPerCallback / bufFrames;
+
+        int numInputBuses = world->mNumInputs;
+        int numOutputBuses = world->mNumOutputs;
+        float* inputBuses = world->mAudioBus + world->mNumOutputs * bufFrames;
+        float* outputBuses = world->mAudioBus;
+        int32* inputTouched = world->mAudioBusTouched + world->mNumOutputs;
+        int32* outputTouched = world->mAudioBusTouched;
+        int numInputStreams = inInputData ? inInputData->mNumberBuffers : 0;
+        int numOutputStreams = outOutputData ? outOutputData->mNumberBuffers : 0;
+
+        int64 oscInc = mOSCincrement;
+        double oscToSamples = mOSCtoSamples;
+
+        int bufFramePos = 0;
+
+        for (int i = 0; i < numBufs; ++i, world->mBufCounter++, bufFramePos += bufFrames) {
+            int32 bufCounter = world->mBufCounter;
+
+            // Copy input (non-interleaved Float32)
+            if (inInputData) {
+                const AudioBuffer* inBufs = inInputData->mBuffers;
+                for (int s = 0, b = 0; b < numInputBuses && s < numInputStreams; s++) {
+                    const AudioBuffer* buf = inBufs + s;
+                    int nchan = buf->mNumberChannels;
+                    if (buf->mData) {
+                        float* busdata = inputBuses + b * bufFrames;
+                        float* bufdata = (float*)buf->mData + bufFramePos * nchan;
+                        if (nchan == 1) {
+                            for (int k = 0; k < bufFrames; ++k)
+                                busdata[k] = bufdata[k];
+                            inputTouched[b] = bufCounter;
+                        } else {
+                            int minchan = sc_min(nchan, numInputBuses - b);
+                            for (int j = 0; j < minchan; ++j, busdata += bufFrames) {
+                                for (int k = 0, m = j; k < bufFrames; ++k, m += nchan)
+                                    busdata[k] = bufdata[m];
+                                inputTouched[b + j] = bufCounter;
+                            }
+                        }
+                        b += nchan;
+                    }
+                }
+            }
+
+            int64 schedTime;
+            int64 nextTime = oscTime + oscInc;
+
+            while ((schedTime = mScheduler.NextTime()) <= nextTime) {
+                float diffTime = (float)(schedTime - oscTime) * oscToSamples + 0.5;
+                float diffTimeFloor = floor(diffTime);
+                world->mSampleOffset = (int)diffTimeFloor;
+                world->mSubsampleOffset = diffTime - diffTimeFloor;
+
+                if (world->mSampleOffset < 0)
+                    world->mSampleOffset = 0;
+                else if (world->mSampleOffset >= world->mBufLength)
+                    world->mSampleOffset = world->mBufLength - 1;
+
+                SC_ScheduledEvent event = mScheduler.Remove();
+                event.Perform();
+            }
+            world->mSampleOffset = 0;
+            world->mSubsampleOffset = 0.f;
+
+            World_Run(world);
+
+            // Copy output (non-interleaved Float32)
+            AudioBuffer* outBufs = outOutputData->mBuffers;
+            for (int s = 0, b = 0; b < numOutputBuses && s < numOutputStreams; s++) {
+                AudioBuffer* buf = outBufs + s;
+                int nchan = buf->mNumberChannels;
+                if (buf->mData) {
+                    float* busdata = outputBuses + b * bufFrames;
+                    float* bufdata = (float*)buf->mData + bufFramePos * nchan;
+                    if (nchan == 1) {
+                        if (outputTouched[b] == bufCounter) {
+                            for (int k = 0; k < bufFrames; ++k)
+                                bufdata[k] = busdata[k];
+                        }
+                    } else {
+                        int minchan = sc_min(nchan, numOutputBuses - b);
+                        for (int j = 0; j < minchan; ++j, busdata += bufFrames) {
+                            if (outputTouched[b + j] == bufCounter) {
+                                for (int k = 0, m = j; k < bufFrames; ++k, m += nchan)
+                                    bufdata[m] = busdata[k];
+                            }
+                        }
+                    }
+                    b += nchan;
+                }
+            }
+            oscTime = mOSCbuftime = nextTime;
+        }
+    } catch (std::exception& exc) {
+        scprintf("SC iOS: exception in real time: %s\n", exc.what());
+    } catch (...) {
+        scprintf("SC iOS: unknown exception in real time\n");
+    }
+
+    int64 systemTimeAfter = GetMicroseconds();
+    double calcTime = (double)(systemTimeAfter - systemTimeBefore) * 1e-6;
+    double cpuUsage = calcTime * mBuffersPerSecond * 100.;
+    mAvgCPU = mAvgCPU + 0.1 * (cpuUsage - mAvgCPU);
+    if (cpuUsage > mPeakCPU || --mPeakCounter <= 0) {
+        mPeakCPU = cpuUsage;
+        mPeakCounter = mMaxPeakCounter;
+    }
+
+    mAudioSync.Signal();
+}
+
+#else // Legacy iPhone driver (pre-iOS, reference only)
 
 /*
 OSStatus appIOProc2 (AudioDeviceID inDevice, const AudioTimeStamp* inNow,
@@ -2434,4 +2784,5 @@ bool SC_iCoreAudioDriver::DriverStop() {
     return true;
 }
 
+#endif // SC_IOS vs legacy
 #endif // SC_AUDIO_API_COREAUDIOIPHONE

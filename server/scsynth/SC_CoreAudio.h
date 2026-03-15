@@ -284,14 +284,37 @@ public:
 #endif
 
 #if SC_AUDIO_API == SC_AUDIO_API_COREAUDIOIPHONE
+
+#ifdef SC_IOS
+// Modern iOS audio driver using AVAudioSession + RemoteIO
+class SCiOSAudioSessionManager; // forward declaration
+
+class SC_iCoreAudioDriver : public SC_AudioDriver {
+protected:
+    virtual bool DriverSetup(int* outNumSamplesPerCallback, double* outSampleRate);
+    virtual bool DriverStart();
+    virtual bool DriverStop();
+
+public:
+    SC_iCoreAudioDriver(World* inWorld);
+    virtual ~SC_iCoreAudioDriver();
+
+    void Run(const AudioBufferList* inInputData, AudioBufferList* outOutputData, int64 oscTime);
+
+    AudioUnit mAudioUnit;
+    AudioBufferList* mInputBufferList;
+    SCiOSAudioSessionManager* mSessionManager;
+    bool mInputEnabled;
+};
+
+#else // Legacy iPhone driver (reference only, not compiled for modern iOS)
 class SC_iCoreAudioDriver : public SC_AudioDriver {
     AUGraph graph;
 
-    AudioStreamBasicDescription inputStreamDesc; // info about the default device
-    AudioStreamBasicDescription outputStreamDesc; // info about the default device
+    AudioStreamBasicDescription inputStreamDesc;
+    AudioStreamBasicDescription outputStreamDesc;
 
 protected:
-    // Driver interface methods
     virtual bool DriverSetup(int* outNumSamplesPerCallback, double* outSampleRate);
     virtual bool DriverStart();
     virtual bool DriverStop();
@@ -313,6 +336,7 @@ public:
     int receivedIn;
     AudioUnit inputUnit;
 };
+#endif // SC_IOS
 
 inline SC_AudioDriver* SC_NewAudioDriver(World* inWorld) { return new SC_iCoreAudioDriver(inWorld); }
 #endif // SC_AUDIO_API_COREAUDIOIPHONE
