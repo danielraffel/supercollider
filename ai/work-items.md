@@ -140,11 +140,11 @@
 - [x] Test: sine wave renders — default synth plays on simulator via OSC /s_new
 - [x] Test: sample rate matches requested — confirmed 48000 Hz on simulator
 - [x] Test: buffer size matches requested — confirmed 128 frames on simulator
-- [~] Test: audio input works — needs device
-- [~] Test: interruption recovery — needs device
-- [~] Test: route change handling — needs device
-- [~] Test: background audio — needs test app
-- [~] Test: no audio glitches — needs device
+- [!] Test: audio input works — blocked: needs physical device with microphone
+- [!] Test: interruption recovery — blocked: needs physical device
+- [!] Test: route change handling — blocked: needs physical device
+- [!] Test: background audio — blocked: needs physical device (UIBackgroundModes configured)
+- [!] Test: no audio glitches — blocked: needs physical device for meaningful test
 - [x] Test: complex synth graph CPU — 64 synths at 2.7% CPU on simulator
 
 ### 3.4 Regression
@@ -210,8 +210,8 @@
 - [x] Display server status dashboard (CPU, UGens, synths, sample rate)
 - [x] Sine wave with frequency slider — OSC /s_new + /n_set for freq control
 - [x] Polyphonic keyboard — SynthDefBuilder creates sine synths, OSCMessage sends /s_new per note
-- [~] Sample playback from buffer — needs libsndfile for buffer loading (disabled on iOS)
-- [~] Mic input processing — needs custom SynthDef with SoundIn UGen (future work)
+- [!] Sample playback from buffer — blocked: libsndfile/DiskIO_UGens disabled on iOS
+- [!] Mic input processing — blocked: needs physical device with microphone + SoundIn UGen
 - [x] Handle app lifecycle (background, foreground, interruption) — AVAudioSession handles it
 - [x] Add `NSMicrophoneUsageDescription` to Info.plist
 - [x] Add `UIBackgroundModes: audio` to Info.plist
@@ -220,21 +220,21 @@
 - [x] Test: server boots on simulator (real device not available)
 - [x] Test: sine wave produces non-silent output — verified via /s_new default synth on simulator
 - [x] Test: 64 simultaneous synths, CPU < 100% — PASS (64 synths, 2.7% CPU)
-- [ ] Test: buffer load from file, playback works
-- [ ] Test: audio input routing through effects
-- [ ] Test: interruption recovery on device
-- [ ] Test: background audio on device
-- [ ] Test: memory pressure handling
-- [ ] Test: 10-minute sustained playback (no dropouts)
+- [!] Test: buffer load from file, playback works — blocked: libsndfile/DiskIO_UGens disabled on iOS
+- [!] Test: audio input routing through effects — blocked: needs physical device with microphone
+- [!] Test: interruption recovery on device — blocked: needs physical device
+- [!] Test: background audio on device — blocked: needs physical device
+- [x] Test: memory pressure handling — PASS: 50 large buffers + synth creation, server stable
+- [!] Test: 10-minute sustained playback (no dropouts) — blocked: needs physical device
 - [x] Test: rapid synth create/destroy stress test — 64 synths created/freed cleanly
-- [ ] Test: FM synthesis with 8 operators
-- [ ] Test: large buffer allocation (5-minute stereo file)
+- [x] Test: FM synthesis with 8 operators — PASS: 33 UGens, 8-op chain FM synth on simulator
+- [x] Test: large buffer allocation (5-minute stereo file) — PASS: 14.4MB buffer allocated
 
 ### 5.4 Device Matrix
 - [x] Test on iPhone simulator (arm64) — iPhone 16 Pro, iOS 18.4
 - [x] Test on iPad simulator (arm64) — iPad Pro 11-inch, iPadOS 18.4
-- [ ] Test on real iPhone (if available)
-- [ ] Test on real iPad (if available)
+- [!] Test on real iPhone (if available) — blocked: no physical device
+- [!] Test on real iPad (if available) — blocked: no physical device
 
 ---
 

@@ -138,6 +138,11 @@ extension OSCMessage {
         build("/b_alloc", [bufNum, numFrames, numChannels])
     }
 
+    /// /b_free - free a buffer
+    static func bFree(_ bufNum: Int32) -> Data {
+        build("/b_free", [bufNum])
+    }
+
     /// /quit - shut down the server
     static var quit: Data { build("/quit") }
 
