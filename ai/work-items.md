@@ -232,7 +232,7 @@
 
 ### 5.4 Device Matrix
 - [x] Test on iPhone simulator (arm64) — iPhone 16 Pro, iOS 18.4
-- [ ] Test on iPad simulator (arm64)
+- [x] Test on iPad simulator (arm64) — iPad Pro 11-inch, iPadOS 18.4
 - [ ] Test on real iPhone (if available)
 - [ ] Test on real iPad (if available)
 
