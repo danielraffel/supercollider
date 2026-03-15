@@ -42,6 +42,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.supercollider.sciostest
+        DEVELOPMENT_TEAM: 95CX6P84C4
+        CODE_SIGN_IDENTITY: "iPhone Developer"
         HEADER_SEARCH_PATHS:
           - $(PROJECT_DIR)/../../../server/scsynth
           - $(PROJECT_DIR)/../../../lang
