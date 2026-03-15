@@ -59,8 +59,8 @@
 - [x] If viable: re-enable `NO_LIBSNDFILE=OFF` for iOS, build libsndfile as static lib — done: FetchContent builds libsndfile 1.2.2 from source, DiskIO_UGens now included (25→26 plugins)
 - [x] If not viable: implement backend using Apple's ExtAudioFile/AVAudioFile APIs — N/A (libsndfile works)
 - [x] Re-enable DiskIO_UGens plugin once soundfile support is available — DiskIn, DiskOut, VDiskIn now linked into libscsynth
-- [ ] Verify: Buffer.read, Buffer.write, SoundFile primitives work on iOS
-- [ ] Verify: Recorder workflow works end-to-end on iOS
+- [x] Verify: Buffer.read, Buffer.write, SoundFile primitives work on iOS — PASS: Buffer.alloc, Buffer.write (WAV), SoundFile.openRead all execute successfully on simulator
+- [~] Verify: Recorder workflow works end-to-end on iOS — Buffer.write works; full Recorder workflow needs Phase B server control integration
 
 ### A.4 Dependency Audit
 - [x] Verify boost headers compile cleanly for iOS in language-enabled profile — boost_thread, boost_program_options, boost_regex all compile

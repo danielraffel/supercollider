@@ -214,14 +214,38 @@ struct SCiOSTestApp: App {
                         let synthOk = sclang.interpret("{ SinOsc.ar(440, 0, 0.1) }.play")
                         slog("SCLANG TEST interpret_synth: \(synthOk ? "PASS" : "FAIL")")
 
+                        // Test 5: Buffer allocation and file I/O
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            let output = sclang.postOutput
-                            slog("SCLANG post_output_length: \(output.count)")
-                            slog("SCLANG post_output_preview: \(String(output.prefix(500)))")
+                            // Test Buffer.alloc
+                            let bufOk = sclang.interpret("b = Buffer.alloc(s, 44100, 1); \"Buffer allocated\".postln;")
+                            slog("SCLANG TEST buffer_alloc: \(bufOk ? "PASS" : "FAIL")")
 
-                            sclang.shutdown()
-                            slog("SCLANG TEST shutdown: PASS")
-                            slog("=== SCLANG FEASIBILITY TEST END ===")
+                            // Test Buffer.write (write to Documents)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.path
+                                let writeOk = sclang.interpret("b.write(\"\(docs)/test_buffer.wav\", \"wav\", \"float\"); \"Buffer written\".postln;")
+                                slog("SCLANG TEST buffer_write: \(writeOk ? "PASS" : "FAIL")")
+
+                                // Test SoundFile and File I/O
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                    let fileOk = sclang.interpret("f = SoundFile.new; f.openRead(\"\(docs)/test_buffer.wav\"); \"SoundFile: \" ++ f.numFrames ++ \" frames\"; f.close;")
+                                    slog("SCLANG TEST soundfile_read: \(fileOk ? "PASS" : "FAIL")")
+
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                        let output = sclang.postOutput
+                                        slog("SCLANG post_output_length: \(output.count)")
+                                        slog("SCLANG post_output_preview: \(String(output.prefix(1000)))")
+
+                                        // Check if test file was created
+                                        let testFileExists = FileManager.default.fileExists(atPath: "\(docs)/test_buffer.wav")
+                                        slog("SCLANG TEST wav_file_exists: \(testFileExists ? "PASS" : "FAIL")")
+
+                                        sclang.shutdown()
+                                        slog("SCLANG TEST shutdown: PASS")
+                                        slog("=== SCLANG FEASIBILITY TEST END ===")
+                                    }
+                                }
+                            }
                         }
                     }
                 } else {
