@@ -46,6 +46,16 @@ struct ContentView: View {
                     }
                 }
 
+                // Stress Test
+                GroupBox("Stress Test") {
+                    HStack {
+                        Button("64 Synths") { engine.stressTest(count: 64) }
+                            .buttonStyle(.bordered)
+                        Button("Free All") { engine.freeStressTest(count: 64) }
+                            .buttonStyle(.bordered)
+                    }
+                }
+
                 // Boot/Stop Controls
                 HStack(spacing: 20) {
                     Button("Boot Server") {

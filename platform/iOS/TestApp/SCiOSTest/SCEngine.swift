@@ -40,9 +40,17 @@ class SCEngine: ObservableObject {
         if started {
             isRunning = true
             startStatusUpdates()
+            loadBuiltinSynthDefs()
         }
 
         return started
+    }
+
+    /// Load built-in SynthDefs that don't require sclang compilation
+    private func loadBuiltinSynthDefs() {
+        let sineDef = SynthDefBuilder.simpleSine(name: "sc_sine")
+        let _ = sendOSC(OSCMessage.dRecv(sineDef))
+        print("SC: loaded built-in SynthDef 'sc_sine'")
     }
 
     func stop() {
@@ -83,8 +91,7 @@ class SCEngine: ObservableObject {
     /// Sends a /d_recv with an inline SynthDef binary, then /s_new
     @discardableResult
     func playSine(freq: Float = 440, amp: Float = 0.3, nodeID: Int32 = 1000) -> Bool {
-        // Use /s_new with "default" which is built into scsynth
-        let msg = OSCMessage.sNew("default", nodeID: nodeID, addAction: 1, targetID: 0,
+        let msg = OSCMessage.sNew("sc_sine", nodeID: nodeID, addAction: 1, targetID: 0,
                                    args: ["freq", freq, "amp", amp])
         return sendOSC(msg)
     }
@@ -99,6 +106,25 @@ class SCEngine: ObservableObject {
 
     func sendStatus() -> Bool {
         return sendOSC(OSCMessage.status)
+    }
+
+    /// Create multiple simultaneous synths for stress testing
+    func stressTest(count: Int = 64) {
+        for i in 0..<count {
+            let freq = Float(200 + i * 20)
+            let amp = Float(0.3) / Float(count)
+            let nodeID = Int32(2000 + i)
+            let msg = OSCMessage.sNew("sc_sine", nodeID: nodeID, addAction: 1, targetID: 0,
+                                       args: ["freq", freq, "amp", amp])
+            let _ = sendOSC(msg)
+        }
+    }
+
+    /// Free all stress test synths
+    func freeStressTest(count: Int = 64) {
+        for i in 0..<count {
+            let _ = freeNode(Int32(2000 + i))
+        }
     }
 
     private func updateStatus() {
