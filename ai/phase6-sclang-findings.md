@@ -1,8 +1,37 @@
 # Phase 6: sclang iOS Feasibility — Findings
 
-## Verdict: sclang CAN build for iOS
+## Verdict: sclang WORKS on iOS
 
-libsclang builds successfully for iOS arm64 with minimal modifications. The existing SC_IPHONE guards in the codebase already handle most iOS-incompatible code paths.
+libsclang builds and runs successfully on iOS arm64. The class library compiles, the interpreter executes SC code, and synths can be created — all on the iOS simulator.
+
+## Runtime Test Results (iOS Simulator, iPhone 16 Pro, iOS 18.4)
+
+| Test | Result | Details |
+|------|--------|---------|
+| libsclang build | PASS | Builds as static library for iOS arm64 |
+| sclang init | PASS | SC_LanguageClient creates, runtime initializes |
+| Class library compile | PASS | 334 files, 5629 methods, 2314 classes |
+| Compile time | 148ms | Fast — no performance concern |
+| Memory delta | 34.8 MB | From 240.8 to 275.6 MB — acceptable |
+| Simple interpret (`1 + 1`) | PASS | Expression evaluates correctly |
+| Synth creation (`{ SinOsc.ar }.play`) | PASS | Synth plays audio on simulator |
+| Shutdown | PASS | Clean shutdown, no crashes |
+
+## New Files Created
+
+### Public API
+- `lang/SC_iOSSclang.h` — C API for sclang on iOS (init, compile, interpret, shutdown)
+- `lang/SC_iOSSclang.cpp` — Implementation wrapping SC_LanguageClient
+
+### Filesystem
+- `common/SC_Filesystem_iphone.cpp` — Added `SC_Filesystem_SetResourceDir()` so host apps can point sclang to the app bundle for SCClassLibrary
+
+### Build System
+- `platform/iOS/build_xcframework.sh` — Updated with `--with-sclang` option to merge libsclang + dependencies into XCFramework
+
+### Test App
+- `platform/iOS/TestApp/SCiOSTest/SclangEngine.swift` — Swift wrapper for sclang C API
+- SCClassLibrary bundled as app resource via xcodegen `type: folder`
 
 ## Changes Required (all completed)
 
@@ -11,6 +40,7 @@ libsclang builds successfully for iOS arm64 with minimal modifications. The exis
 2. **SC_Apple.mm**: Exclude on iOS (imports Cocoa).
 3. **sclang executable**: Skip building on iOS (only build libsclang static library).
 4. **SC_IOS define**: Add `target_compile_definitions(libsclang PUBLIC SC_IOS=1)` for iOS builds.
+5. **SC_iOSSclang.cpp**: Added to iOS build via `target_sources`.
 
 ### Source Changes
 1. **SC_AudioDevicePrim.cpp**: Guard `CoreAudio/AudioHardware.h` and device listing functions with `!defined(SC_IOS)` — desktop-only audio device enumeration API.
@@ -23,18 +53,23 @@ libsclang builds successfully for iOS arm64 with minimal modifications. The exis
 ### Top-level CMakeLists.txt
 - Added `SC_IOS_SCLANG` option to allow building lang/ alongside SC_IOS server build.
 
-## Error Catalog (before fixes)
-Only 3 compile errors were encountered:
-1. `CoreAudio/AudioHardware.h` not found — macOS desktop audio API
-2. `CoreAudio/HostTime.h` not found — macOS time conversion
-3. `system()` unavailable on iOS — process spawning banned
+## In-Process Server Boot
+
+The existing `_BootInProcessServer` primitive in `OSCData.cpp` already calls `World_New()` for in-process scsynth. The `iPhonePlatform.sc` class sets `Server.internal` as the default server, which uses in-process boot. No additional work needed.
+
+## Filesystem Integration
+
+`SC_Filesystem_iphone.cpp` provides iOS-specific path resolution:
+- `defaultResourceDirectory()` → `~/Documents/` (default) or custom app bundle path via `SC_Filesystem_SetResourceDir()`
+- `defaultUserAppSupportDirectory()` → `~/Documents/`
+- Host apps call `SCiOSSclangSetResourceDir()` before init to point to the app bundle
 
 ## Process Spawning (fork/exec/popen/system)
-All process-spawning primitives are now guarded for iOS:
+All process-spawning primitives are guarded for iOS:
 - `system()` — returns -1 on iOS (SC_IOS guard)
-- `sc_popen_shell()` — returns 0 on iOS (SC_IPHONE/SC_IOS guard in PyrUnixPrim.cpp)
-- `sc_popen_argv()` — returns 0 on iOS (SC_IPHONE/SC_IOS guard in PyrUnixPrim.cpp/PyrFilePrim.cpp)
-- `fork()/execvp()` — in sc_popen.cpp, guarded by the callers above
+- `sc_popen_shell()` — returns 0 on iOS (SC_IPHONE/SC_IOS guard)
+- `sc_popen_argv()` — returns 0 on iOS (SC_IPHONE/SC_IOS guard)
+- `fork()/execvp()` — guarded by the callers above
 
 ## macOS Framework Dependencies
 | Framework | Status | iOS Alternative |
@@ -49,9 +84,13 @@ All process-spawning primitives are now guarded for iOS:
 ## Qt Dependencies
 Completely optional, already gated behind `SC_QT`/`SC_IDE` flags (both forced OFF for iOS).
 
-## Next Steps for Full sclang Integration
-1. Attempt class library compilation (SCClassLibrary)
-2. Test interpreter startup and simple SC code execution
-3. Profile memory usage and startup time
-4. Integrate with in-process scsynth via World_New
-5. Adapt filesystem paths for iOS sandbox
+## Decision: PROCEED with sclang Integration
+
+sclang works fully on iOS. The class library compiles in 148ms with only 34.8 MB memory overhead. SC code executes correctly and can create synths. This enables on-device SynthDef compilation, live coding, and full SuperCollider scripting on iOS.
+
+### Remaining Work for Full Integration (Phase 7)
+1. Add sclang interpreter UI to test app (code editor + post window)
+2. Bundle SCClassLibrary + Extensions in production app
+3. Handle platform-specific primitives gracefully (file dialogs, GUI, etc.)
+4. Test complex SC patterns, Routines, and server control
+5. Profile sustained sclang usage and memory

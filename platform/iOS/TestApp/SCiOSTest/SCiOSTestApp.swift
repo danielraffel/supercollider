@@ -9,9 +9,13 @@ struct SCiOSTestApp: App {
             ContentView()
                 .environmentObject(scEngine)
                 .onAppear {
-                    // Run automated tests after a short delay to let server boot
+                    // Run automated scsynth tests after a short delay to let server boot
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                         runAutoTests()
+                    }
+                    // Run sclang feasibility test independently (15s delay for auto-tests to finish)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) {
+                        SCiOSTestApp.runSclangFeasibilityTest()
                     }
                 }
         }
@@ -122,6 +126,13 @@ struct SCiOSTestApp: App {
                                                 }
 
                                                 print("=== SC iOS AUTO-TEST END ===")
+
+                                                // Phase 6: sclang feasibility test
+                                                print("SCLANG: scheduling feasibility test...")
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                                    print("SCLANG: starting feasibility test now")
+                                                    SCiOSTestApp.runSclangFeasibilityTest()
+                                                }
                                             }
                                         }
                                     }
@@ -132,5 +143,110 @@ struct SCiOSTestApp: App {
                 }
             }
         }
+    }
+
+    static private var sclangLog: [String] = []
+
+    static private func slog(_ msg: String) {
+        sclangLog.append(msg)
+        // Write to file immediately
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let logFile = docs.appendingPathComponent("sclang_test.log")
+        try? sclangLog.joined(separator: "\n").write(to: logFile, atomically: true, encoding: .utf8)
+        // Print to stdout AND force flush
+        let line = msg + "\n"
+        if let data = line.data(using: .utf8) {
+            FileHandle.standardOutput.write(data)
+        }
+    }
+
+    static private func runSclangFeasibilityTest() {
+        slog("=== SCLANG FEASIBILITY TEST START ===")
+
+        let sclang = SclangEngine()
+
+        // Get class library path from app bundle
+        let classLibPath = Bundle.main.path(forResource: "SCClassLibrary", ofType: nil)
+        let bundleResourcePath = Bundle.main.resourcePath
+        slog("SCLANG class_lib_path: \(classLibPath ?? "NOT FOUND")")
+        slog("SCLANG bundle_resource_path: \(bundleResourcePath ?? "NOT FOUND")")
+
+        if classLibPath == nil {
+            slog("SCLANG TEST class_lib_bundled: FAIL (SCClassLibrary not in bundle)")
+            slog("=== SCLANG FEASIBILITY TEST END ===")
+            return
+        }
+        slog("SCLANG TEST class_lib_bundled: PASS")
+
+        // Test 1: Initialize sclang — pass the SCClassLibrary path so the resource dir gets set
+        let initOk = sclang.initialize(classLibraryPath: classLibPath)
+        slog("SCLANG TEST init: \(initOk ? "PASS" : "FAIL")")
+
+        if !initOk {
+            slog("=== SCLANG FEASIBILITY TEST END ===")
+            return
+        }
+
+        // Test 2: Compile class library (on background thread to not block UI)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let startMem = getMemoryMB()
+            let start = CFAbsoluteTimeGetCurrent()
+
+            let compileOk = sclang.compileLibrary()
+            let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000
+            let endMem = getMemoryMB()
+            let memDelta = endMem - startMem
+
+            DispatchQueue.main.async {
+                slog("SCLANG TEST compile_library: \(compileOk ? "PASS" : "FAIL")")
+                slog("SCLANG compile_time_ms: \(Int(elapsed))")
+                slog("SCLANG memory_before_mb: \(String(format: "%.1f", startMem))")
+                slog("SCLANG memory_after_mb: \(String(format: "%.1f", endMem))")
+                slog("SCLANG memory_delta_mb: \(String(format: "%.1f", memDelta))")
+
+                if compileOk {
+                    // Test 3: Execute simple SC code
+                    let interpOk = sclang.interpret("1 + 1")
+                    slog("SCLANG TEST interpret_simple: \(interpOk ? "PASS" : "FAIL")")
+
+                    // Test 4: Execute SC code that creates a synth
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        let synthOk = sclang.interpret("{ SinOsc.ar(440, 0, 0.1) }.play")
+                        slog("SCLANG TEST interpret_synth: \(synthOk ? "PASS" : "FAIL")")
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            let output = sclang.postOutput
+                            slog("SCLANG post_output_length: \(output.count)")
+                            slog("SCLANG post_output_preview: \(String(output.prefix(500)))")
+
+                            sclang.shutdown()
+                            slog("SCLANG TEST shutdown: PASS")
+                            slog("=== SCLANG FEASIBILITY TEST END ===")
+                        }
+                    }
+                } else {
+                    let output = sclang.postOutput
+                    slog("SCLANG compile_output_length: \(output.count)")
+                    slog("SCLANG compile_output_preview: \(String(output.prefix(2000)))")
+
+                    sclang.shutdown()
+                    slog("=== SCLANG FEASIBILITY TEST END ===")
+                }
+            }
+        }
+    }
+
+    static private func getMemoryMB() -> Double {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        if result == KERN_SUCCESS {
+            return Double(info.resident_size) / (1024 * 1024)
+        }
+        return 0
     }
 }

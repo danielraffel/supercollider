@@ -251,16 +251,16 @@
 
 ### 6.2 Minimal sclang Prototype (if build succeeds)
 - [x] Stub all process-spawning primitives (return error gracefully) — system/popen return 0/-1 on iOS
-- [ ] Use in-process server boot (`World_New`) instead of `unixCmd`
-- [ ] Adapt filesystem paths for iOS sandbox
-- [ ] Attempt class library compilation
-- [ ] If class library compiles: execute simple SC code, verify synth control
-- [ ] Profile memory usage and startup time
+- [x] Use in-process server boot (`World_New`) instead of `unixCmd` — _BootInProcessServer primitive already uses World_New; iPhonePlatform.sc sets Server.internal as default
+- [x] Adapt filesystem paths for iOS sandbox — SC_Filesystem_iphone.cpp active via SC_IOS define; added SC_Filesystem_SetResourceDir() for app bundle resources
+- [x] Attempt class library compilation — PASS: 334 files, 5629 methods, 2314 classes compiled in 148ms on iOS simulator
+- [x] If class library compiles: execute simple SC code, verify synth control — PASS: `1 + 1` and `{ SinOsc.ar(440, 0, 0.1) }.play` both execute successfully
+- [x] Profile memory usage and startup time — compile: 148ms, memory delta: 34.8 MB (240.8→275.6 MB)
 
 ### 6.3 Decision Gate
-- [ ] Document findings: what works, what doesn't, estimated effort for full sclang
-- [ ] Decision: proceed with sclang integration or stay scsynth-only + precompiled SynthDefs
-- [ ] If proceeding: create Phase 6b work items for full sclang integration
+- [x] Document findings: what works, what doesn't, estimated effort for full sclang — see ai/phase6-sclang-findings.md
+- [x] Decision: proceed with sclang integration or stay scsynth-only + precompiled SynthDefs — PROCEED: sclang works fully on iOS, class library compiles, code executes, synths play
+- [x] If proceeding: create Phase 6b work items for full sclang integration — added to Phase 7 work items
 
 ---
 

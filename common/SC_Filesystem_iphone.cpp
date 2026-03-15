@@ -31,6 +31,7 @@
 
 // system
 #    include <glob.h> // ::glob, glob_t
+#    include <string>
 
 using Path = SC_Filesystem::Path;
 using DirName = SC_Filesystem::DirName;
@@ -41,6 +42,16 @@ const char* LIBRARY_DIR_NAME = "Library";
 const char* DOCUMENTS_DIR_NAME = "Documents";
 const char* APPLICATION_SUPPORT_DIR_NAME = "Application Support";
 const Path ROOT_PATH = Path("/");
+
+// Allow host app to override the resource directory (for app bundle resources)
+static std::string gCustomResourceDir;
+
+void SC_Filesystem_SetResourceDir(const char* path) {
+    if (path)
+        gCustomResourceDir = path;
+    else
+        gCustomResourceDir.clear();
+}
 
 //============ PATH UTILITIES =============//
 
@@ -110,6 +121,12 @@ Path SC_Filesystem::defaultUserConfigDirectory() {
     return defaultUserAppSupportDirectory();
 }
 
-Path SC_Filesystem::defaultResourceDirectory() { return defaultUserAppSupportDirectory(); }
+Path SC_Filesystem::defaultResourceDirectory() {
+    // If the host app set a custom resource directory (e.g., the app bundle),
+    // use that so sclang can find SCClassLibrary inside the bundle.
+    if (!gCustomResourceDir.empty())
+        return Path(gCustomResourceDir);
+    return defaultUserAppSupportDirectory();
+}
 
 #endif // SC_IPHONE || SC_IOS

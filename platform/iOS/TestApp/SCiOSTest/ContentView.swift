@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject var engine: SCEngine
     @State private var frequency: Double = 440
     @State private var isPlaying = false
+    @State private var showSclangTest = false
 
     var body: some View {
         NavigationView {
@@ -69,6 +70,11 @@ struct ContentView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(!engine.isRunning)
+
+                    Button("sclang Test") {
+                        showSclangTest = true
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 Spacer()
@@ -79,6 +85,9 @@ struct ContentView: View {
             }
             .padding()
             .navigationTitle("SC iOS Test")
+            .sheet(isPresented: $showSclangTest) {
+                SclangTestView()
+            }
         }
         .onAppear {
             let _ = engine.boot()
@@ -92,5 +101,81 @@ struct ContentView: View {
             engine.playSine(freq: Float(frequency), amp: 0.3, nodeID: 1000)
         }
         isPlaying.toggle()
+    }
+}
+
+// MARK: - sclang Feasibility Test View
+
+struct SclangTestView: View {
+    @StateObject private var sclang = SclangEngine()
+    @State private var codeInput = "1 + 1"
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 12) {
+                GroupBox("sclang Status") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        LabeledContent("Initialized", value: sclang.isInitialized ? "Yes" : "No")
+                        LabeledContent("Library Compiled", value: sclang.isLibraryCompiled ? "Yes" : "No")
+                        if sclang.compileTimeMs > 0 {
+                            LabeledContent("Compile Time", value: String(format: "%.0f ms", sclang.compileTimeMs))
+                            LabeledContent("Memory Delta", value: String(format: "%.1f MB", sclang.memoryUsageMB))
+                        }
+                    }
+                    .font(.system(.body, design: .monospaced))
+                }
+
+                HStack(spacing: 12) {
+                    Button("Init sclang") {
+                        let classLibPath = Bundle.main.path(forResource: "SCClassLibrary", ofType: nil)
+                        let _ = sclang.initialize(classLibraryPath: classLibPath)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(sclang.isInitialized)
+
+                    Button("Compile Library") {
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            let _ = sclang.compileLibrary()
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!sclang.isInitialized || sclang.isLibraryCompiled)
+
+                    Button("Shutdown") {
+                        sclang.shutdown()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!sclang.isInitialized)
+                }
+
+                if sclang.isLibraryCompiled {
+                    HStack {
+                        TextField("SC code", text: $codeInput)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                        Button("Run") {
+                            let _ = sclang.interpret(codeInput)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+
+                GroupBox("Output") {
+                    ScrollView {
+                        Text(sclang.postOutput.isEmpty ? "(no output)" : sclang.postOutput)
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .frame(maxHeight: .infinity)
+            }
+            .padding()
+            .navigationTitle("sclang Feasibility")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                Button("Done") { dismiss() }
+            }
+        }
     }
 }
