@@ -170,6 +170,22 @@ void SCiOSSclangAddIncludePath(const char* path) {
     }
 }
 
+// Access gInternalSynthServer defined in OSCData.cpp
+// We include the World type from the server headers
+#include "SC_World.h"
+
+struct InternalSynthServerGlobals {
+    World* mWorld;
+    int mNumSharedControls;
+    float* mSharedControls;
+};
+extern InternalSynthServerGlobals gInternalSynthServer;
+
+void SCiOSSclangConnectToServer(void* worldPtr) {
+    gInternalSynthServer.mWorld = (World*)worldPtr;
+    printf("SC iOS: sclang connected to World %p\n", worldPtr);
+}
+
 void SCiOSSclangShutdown(void) {
     std::lock_guard<std::mutex> lock(gSclangMutex);
 

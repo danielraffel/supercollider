@@ -60,6 +60,11 @@ bool SCiOSSclangInterpret(const char* code);
 // Must be called before SCiOSSclangCompileLibrary
 void SCiOSSclangAddIncludePath(const char* path);
 
+// Connect sclang to an already-running scsynth World created via SC_iOSLibSynth C API.
+// This sets gInternalSynthServer.mWorld so sclang can send OSC to it.
+// Must be called after SCiOSSclangCompileLibrary and after SCiOSServerCreate.
+void SCiOSSclangConnectToServer(void* worldPtr);
+
 // Shut down sclang runtime
 void SCiOSSclangShutdown(void);
 

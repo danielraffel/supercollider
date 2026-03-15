@@ -69,6 +69,9 @@ float SCiOSServerPeakCPU(SCiOSServerRef server);
 // Version string
 const char* SCiOSServerVersion(void);
 
+// Get the internal World pointer (for connecting sclang to this server)
+void* SCiOSServerGetWorld(SCiOSServerRef server);
+
 #ifdef __cplusplus
 }
 #endif

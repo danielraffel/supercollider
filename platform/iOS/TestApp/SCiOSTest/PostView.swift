@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Post window showing sclang output
 struct PostView: View {
     @EnvironmentObject var app: AppState
 
@@ -10,6 +9,14 @@ struct PostView: View {
                 Text("Post")
                     .font(.headline)
                 Spacer()
+                Button {
+                    UIPasteboard.general.string = app.postOutput
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
                 Button("Clear") {
                     app.clearPost()
                 }
@@ -27,6 +34,7 @@ struct PostView: View {
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(Color(.label))
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
                         .padding(8)
                         .id("postBottom")
                 }

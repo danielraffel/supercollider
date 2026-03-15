@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Server status and control panel
 struct ServerView: View {
     @EnvironmentObject var app: AppState
 
@@ -9,9 +8,15 @@ struct ServerView: View {
             Section("Server") {
                 HStack {
                     Circle()
-                        .fill(app.serverRunning ? Color.green : Color.orange)
+                        .fill(app.serverRunning ? Color.green : Color.red)
                         .frame(width: 12, height: 12)
-                    Text(app.serverRunning ? "Running" : "Booting...")
+                    Text(app.serverRunning ? "Running" : "Stopped")
+                    Spacer()
+                    if app.serverRunning {
+                        Text(String(format: "%.0f Hz", app.sampleRate))
+                            .font(.caption.monospacedDigit())
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 HStack {
@@ -22,29 +27,32 @@ struct ServerView: View {
                 }
             }
 
+            if app.serverRunning {
+                Section("Status") {
+                    LabeledContent("Avg CPU", value: String(format: "%.1f%%", app.avgCPU))
+                    LabeledContent("Peak CPU", value: String(format: "%.1f%%", app.peakCPU))
+                    LabeledContent("Synths", value: "\(app.numSynths)")
+                    LabeledContent("UGens", value: "\(app.numUGens)")
+                }
+                .font(.system(.body, design: .monospaced))
+            }
+
             Section("Actions") {
                 Button("Play Test Tone") {
                     app.evaluate("{ SinOsc.ar(440, 0, 0.3) }.play;")
                 }
-                .disabled(!app.sclangReady)
+                .disabled(!app.sclangReady || !app.serverRunning)
 
-                Button("Stop All Sound") {
-                    app.stopAll()
-                }
-                .foregroundColor(.red)
+                Button("Stop All Sound") { app.stopAll() }
+                    .foregroundColor(.red)
 
-                Button("Recompile Class Library") {
-                    app.recompile()
-                }
-                .disabled(!app.sclangReady)
+                Button("Recompile Class Library") { app.recompile() }
+                    .disabled(!app.sclangReady)
 
                 Button("Check Server Status") {
                     app.evaluate("""
-                        var s = Server.internal;
-                        ("Running: " ++ s.serverRunning).postln;
-                        ("SR: " ++ s.sampleRate).postln;
-                        ("Synths: " ++ s.numSynths).postln;
-                        ("UGens: " ++ s.numUGens).postln;
+                        "Server running: ".post; Server.internal.serverRunning.postln;
+                        "Sample rate: ".post; Server.internal.sampleRate.postln;
                     """)
                 }
                 .disabled(!app.sclangReady)
@@ -53,7 +61,6 @@ struct ServerView: View {
             Section("Info") {
                 LabeledContent("Version", value: "SC 3.15.0-dev")
                 LabeledContent("Plugins", value: "26 modules")
-                LabeledContent("Platform", value: "iOS arm64")
             }
         }
         .listStyle(.insetGrouped)

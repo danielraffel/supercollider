@@ -202,4 +202,9 @@ const char* SCiOSServerVersion(void) {
     return "SuperCollider scsynth iOS 3.15.0-dev";
 }
 
+void* SCiOSServerGetWorld(SCiOSServerRef server) {
+    if (!server || !server->world) return nullptr;
+    return (void*)server->world;
+}
+
 #endif // SC_IOS
