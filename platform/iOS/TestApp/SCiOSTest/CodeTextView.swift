@@ -151,10 +151,9 @@ extension SCCodeTextView: UIGestureRecognizerDelegate {
 struct CodeTextView: UIViewRepresentable {
     @Binding var text: String
     var onEvaluate: (() -> Void)?
-    /// Called with the specific code string to evaluate (selected text or full text)
     var onEvaluateCode: ((String) -> Void)?
-    /// Called when Stop All is requested from the context menu
     var onStop: (() -> Void)?
+    var onSelectionChanged: ((String) -> Void)?
 
     func makeUIView(context: Context) -> SCCodeTextView {
         let textView = SCCodeTextView()
@@ -186,6 +185,7 @@ struct CodeTextView: UIViewRepresentable {
         context.coordinator.evaluateCode = onEvaluateCode
         context.coordinator.stopAll = onStop
         context.coordinator.onEvaluate = onEvaluate
+        context.coordinator.onSelectionChanged = onSelectionChanged
 
         // Wire the global UIKit callbacks so SCCodeTextView can reach them
         scEvaluateCallback = { code in
@@ -216,14 +216,25 @@ struct CodeTextView: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
         var onEvaluate: (() -> Void)?
-        /// Set externally (e.g. from EditorView.onAppear) to route evaluated code to AppState
         var evaluateCode: ((String) -> Void)?
         var stopAll: (() -> Void)?
+        /// Callback to save selection to AppState.lastSelection
+        var onSelectionChanged: ((String) -> Void)?
         private var highlightTimer: Timer?
 
         init(text: Binding<String>, onEvaluate: (() -> Void)?) {
             self.text = text
             self.onEvaluate = onEvaluate
+        }
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            // Save current selection so Play button can use it even after focus lost
+            if let range = textView.selectedTextRange, !range.isEmpty {
+                let selected = textView.text(in: range) ?? ""
+                onSelectionChanged?(selected)
+            } else {
+                onSelectionChanged?("")
+            }
         }
 
         func textViewDidChange(_ textView: UITextView) {

@@ -16,7 +16,8 @@ struct EditorView: View {
                 text: $app.codeText,
                 onEvaluate: { app.evaluateSelection() },
                 onEvaluateCode: { code in app.evaluateCode(code) },
-                onStop: { app.stopAll() }
+                onStop: { app.stopAll() },
+                onSelectionChanged: { selected in app.lastSelection = selected }
             )
             .layoutPriority(1)
         }

@@ -14,6 +14,8 @@ class AppState: ObservableObject {
     @Published var postOutput = ""
     @Published var currentFile: String? = nil
     @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
+    /// Last known text selection (saved before text view loses focus)
+    var lastSelection: String = ""
 
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?
@@ -153,8 +155,13 @@ class AppState: ObservableObject {
     }
 
     func evaluateSelection() {
-        // Evaluate entire editor content
-        evaluate(codeText)
+        // If there's a saved selection, evaluate that; otherwise evaluate whole file
+        if !lastSelection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            evaluate(lastSelection)
+            lastSelection = ""  // Clear after use
+        } else {
+            evaluate(codeText)
+        }
     }
 
     func evaluateCode(_ code: String) {
