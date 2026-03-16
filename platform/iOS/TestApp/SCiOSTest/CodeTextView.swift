@@ -39,12 +39,11 @@ class SCCodeTextView: UITextView {
         twoFingerTap.delegate = self
         addGestureRecognizer(twoFingerTap)
 
-        // Three-finger swipe down → Stop All (panic stop)
-        let threeFingerSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleThreeFingerSwipe(_:)))
-        threeFingerSwipe.numberOfTouchesRequired = 3
-        threeFingerSwipe.direction = .down
-        threeFingerSwipe.delegate = self
-        addGestureRecognizer(threeFingerSwipe)
+        // Three-finger tap → Stop (context-aware)
+        let threeFingerTap = UITapGestureRecognizer(target: self, action: #selector(handleThreeFingerTap(_:)))
+        threeFingerTap.numberOfTouchesRequired = 3
+        threeFingerTap.delegate = self
+        addGestureRecognizer(threeFingerTap)
     }
 
     @objc private func handleTwoFingerTap(_ gesture: UITapGestureRecognizer) {
@@ -53,9 +52,17 @@ class SCCodeTextView: UITextView {
         }
     }
 
-    @objc private func handleThreeFingerSwipe(_ gesture: UISwipeGestureRecognizer) {
+    @objc private func handleThreeFingerTap(_ gesture: UITapGestureRecognizer) {
         if gesture.state == .ended {
-            stopAllSound(nil)
+            if let range = selectedTextRange, !range.isEmpty {
+                // Selection exists — evaluate it as a .free command
+                let selected = text(in: range) ?? ""
+                // Try to stop just the selected synth/pattern
+                scEvaluateCallback?(selected.trimmingCharacters(in: .whitespacesAndNewlines) + ".free;")
+            } else {
+                // No selection — stop all
+                scStopCallback?()
+            }
         }
     }
 

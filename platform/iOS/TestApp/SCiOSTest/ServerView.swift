@@ -51,11 +51,11 @@ struct ServerView: View {
             Section("Gestures") {
                 VStack(alignment: .leading, spacing: 8) {
                     gestureRow("Long-press", "Select code block")
-                    gestureRow("Two-finger tap", "Evaluate selected code")
+                    gestureRow("2-finger tap", "▶ Play / evaluate selected code")
+                    gestureRow("3-finger tap", "■ Stop selected, or stop all if nothing selected")
+                    gestureRow("Shake device", "■ Stop all sound (panic stop)")
                     gestureRow("Play button ▶", "Evaluate selection or whole file")
-                    gestureRow("Stop button ■", "Stop all sound (CmdPeriod)")
-                    gestureRow("Evaluate (menu)", "Run selected code")
-                    gestureRow("Stop All (menu)", "Stop all sound")
+                    gestureRow("Stop button ■", "Stop all sound")
                 }
                 .font(.caption)
             }
