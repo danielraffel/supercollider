@@ -176,11 +176,12 @@ class AppState: ObservableObject {
 
     func stopAll() {
         if sclangReady {
-            let _ = sclang.interpret("""
-                Server.internal.freeAll;
-                Server.internal.sendMsg("/g_new", 1, 0, 0);
-                "stopAll: group 1 recreated".postln;
-            """)
+            // CmdPeriod stops all patterns, routines, and frees synths
+            let _ = sclang.interpret("CmdPeriod.run;")
+            // Recreate default group after a tiny delay (CmdPeriod frees it)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                let _ = self?.sclang.interpret("Server.internal.sendMsg(\"/g_new\", 1, 0, 0);")
+            }
         }
         appendPost("⏹ stopped\n")
     }
