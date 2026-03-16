@@ -47,10 +47,24 @@ struct EditorView: View {
             }
             .keyboardShortcut(".", modifiers: .command)
 
+            // Record button
+            Button(action: { app.toggleRecording() }) {
+                Image(systemName: app.isRecording ? "record.circle.fill" : "record.circle")
+                    .foregroundColor(app.isRecording ? .red : .white)
+                    .frame(width: 36, height: 36)
+                    .background(app.isRecording ? Color.red.opacity(0.3) : Color.gray.opacity(0.5))
+                    .clipShape(Circle())
+            }
+            .disabled(!app.sclangReady || !app.serverRunning)
+
             if !app.sclangReady {
                 Text("compiling...")
                     .font(.caption)
                     .foregroundColor(.orange)
+            } else if app.isRecording {
+                Text("REC")
+                    .font(.caption.bold())
+                    .foregroundColor(.red)
             }
 
             Spacer()

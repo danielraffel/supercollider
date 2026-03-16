@@ -11,6 +11,7 @@ class AppState: ObservableObject {
     @Published var numSynths: Int = 0
     @Published var numUGens: Int = 0
     @Published var isPlaying: Bool = false
+    @Published var isRecording: Bool = false
     @Published var postOutput = ""
     @Published var currentFile: String? = nil
     @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
@@ -244,15 +245,31 @@ class AppState: ObservableObject {
     }
 
     func stopAll() {
+        if isRecording {
+            let _ = sclang.interpret("Server.internal.stopRecording;")
+            isRecording = false
+            appendPost("⏺ Recording saved\n")
+        }
         if sclangReady {
-            // CmdPeriod stops all patterns, routines, and frees synths
             let _ = sclang.interpret("CmdPeriod.run;")
-            // Recreate default group after a tiny delay (CmdPeriod frees it)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 let _ = self?.sclang.interpret("Server.internal.sendMsg(\"/g_new\", 1, 0, 0);")
             }
         }
         appendPost("⏹ stopped\n")
+    }
+
+    func toggleRecording() {
+        guard sclangReady else { return }
+        if isRecording {
+            let _ = sclang.interpret("Server.internal.stopRecording;")
+            isRecording = false
+            appendPost("⏺ Recording saved to Documents/\n")
+        } else {
+            let _ = sclang.interpret("Server.internal.record;")
+            isRecording = true
+            appendPost("⏺ Recording...\n")
+        }
     }
 
     func recompile() {
