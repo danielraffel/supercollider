@@ -1,8 +1,13 @@
 import SwiftUI
 
+enum IPadTab: Hashable {
+    case editor, post, server, files
+}
+
 struct ContentView: View {
     @EnvironmentObject var app: AppState
     @State private var selectedTab = 0
+    @State private var selectedIPadTab: IPadTab? = .editor
 
     init() {
         // Make tab bar opaque so content doesn't bleed through
@@ -27,19 +32,28 @@ struct ContentView: View {
 
     var iPadLayout: some View {
         NavigationSplitView {
-            List(selection: .constant(0)) {
-                NavigationLink(destination: ServerView()) {
-                    Label("Server", systemImage: "server.rack")
-                }
-                NavigationLink(destination: FileBrowserView()) {
-                    Label("Files", systemImage: "folder")
-                }
+            List(selection: $selectedIPadTab) {
+                Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")
+                    .tag(IPadTab.editor)
+                Label("Post", systemImage: "text.alignleft")
+                    .tag(IPadTab.post)
+                Label("Server", systemImage: "server.rack")
+                    .tag(IPadTab.server)
+                Label("Files", systemImage: "folder")
+                    .tag(IPadTab.files)
             }
             .navigationTitle("SuperCollider")
-        } content: {
-            EditorView()
         } detail: {
-            PostView()
+            switch selectedIPadTab {
+            case .editor, .none:
+                EditorView()
+            case .post:
+                PostView()
+            case .server:
+                ServerView()
+            case .files:
+                FileBrowserView()
+            }
         }
     }
 
