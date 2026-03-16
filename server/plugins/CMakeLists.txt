@@ -154,11 +154,8 @@ if(SC_IOS)
 	list(APPEND sc_ios_static_plugins ML_UGens)
 	list(APPEND sc_ios_plugin_load_names ML_UGens)
 
-	# UIUGens stub for iOS (MouseX, MouseY, MouseButton, KeyState)
-	add_library(UIUGens_iOS OBJECT UIUGens_iOS.cpp)
-	target_compile_definitions(UIUGens_iOS PRIVATE STATIC_PLUGINS)
-	list(APPEND sc_ios_static_plugins UIUGens_iOS)
-	list(APPEND sc_ios_plugin_load_names UIUGens)
+	# Note: UIUGens (MouseX, MouseY, KeyState) not available on iOS.
+	# Use LFNoise1.kr or other LFO UGens instead of MouseX/Y.
 
 	# DiskIO if sndfile available
 	if(NOT NO_LIBSNDFILE AND SNDFILE_FOUND)

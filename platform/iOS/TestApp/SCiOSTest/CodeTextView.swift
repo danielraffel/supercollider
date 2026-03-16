@@ -39,11 +39,17 @@ class SCCodeTextView: UITextView {
         switch gesture.state {
         case .began:
             longPressActive = true
-            let anchorRange = lineRange(at: location)
-            longPressAnchorLineRange = anchorRange
-            // Select the entire anchor line
-            if let r = anchorRange {
-                selectedRange = r
+            // Try to find enclosing ( ... ) block first
+            if let blockRange = findEnclosingBlock(at: location) {
+                selectedRange = blockRange
+                longPressAnchorLineRange = blockRange
+            } else {
+                // No block found — select current line
+                let anchorRange = lineRange(at: location)
+                longPressAnchorLineRange = anchorRange
+                if let r = anchorRange {
+                    selectedRange = r
+                }
             }
 
         case .changed:
@@ -51,7 +57,6 @@ class SCCodeTextView: UITextView {
             let currentRange = lineRange(at: location)
             guard let current = currentRange else { return }
 
-            // Extend selection to cover anchor + current line, spanning both directions
             let start = min(anchor.location, current.location)
             let end = max(
                 anchor.location + anchor.length,
@@ -66,6 +71,63 @@ class SCCodeTextView: UITextView {
         default:
             break
         }
+    }
+
+    /// Find the enclosing ( ... ) block around the touch point.
+    /// In SC, `(` on its own line starts a block and `)` on its own line ends it.
+    private func findEnclosingBlock(at point: CGPoint) -> NSRange? {
+        guard let fullText = text as NSString? else { return nil }
+        let totalLength = fullText.length
+        guard totalLength > 0 else { return nil }
+
+        // Find character index at touch point
+        let adjustedPoint = CGPoint(
+            x: max(textContainerInset.left, min(point.x, bounds.width - textContainerInset.right)),
+            y: max(textContainerInset.top, min(point.y, contentSize.height - 1))
+        )
+        let glyphIndex = layoutManager.glyphIndex(for: adjustedPoint, in: textContainer, fractionOfDistanceThroughGlyph: nil)
+        let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
+        let idx = min(charIndex, totalLength - 1)
+
+        let str = fullText as String
+
+        // Scan backwards for `(` at the start of a line (possibly with whitespace)
+        var blockStart: String.Index? = nil
+        let startSearchIdx = str.index(str.startIndex, offsetBy: min(idx, str.count))
+        var scanIdx = startSearchIdx
+        while scanIdx > str.startIndex {
+            // Find start of this line
+            let lineStart = str[...scanIdx].lastIndex(of: "\n").map { str.index(after: $0) } ?? str.startIndex
+            let lineContent = str[lineStart...scanIdx].trimmingCharacters(in: .whitespaces)
+            if lineContent.hasPrefix("(") && lineContent.count <= 2 {
+                blockStart = lineStart
+                break
+            }
+            if lineStart == str.startIndex { break }
+            scanIdx = str.index(before: lineStart)
+        }
+
+        guard let bStart = blockStart else { return nil }
+
+        // Scan forwards for `)` at the start of a line
+        var blockEnd: String.Index? = nil
+        scanIdx = startSearchIdx
+        while scanIdx < str.endIndex {
+            let lineEnd = str[scanIdx...].firstIndex(of: "\n") ?? str.endIndex
+            let lineContent = str[scanIdx..<lineEnd].trimmingCharacters(in: .whitespaces)
+            if lineContent == ")" {
+                blockEnd = lineEnd
+                break
+            }
+            if lineEnd == str.endIndex { break }
+            scanIdx = str.index(after: lineEnd)
+        }
+
+        guard let bEnd = blockEnd else { return nil }
+
+        let nsStart = str.distance(from: str.startIndex, to: bStart)
+        let nsEnd = str.distance(from: str.startIndex, to: bEnd)
+        return NSRange(location: nsStart, length: nsEnd - nsStart)
     }
 
     /// Returns the NSRange of the full line (including newline) that contains the given point.

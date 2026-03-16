@@ -42,7 +42,7 @@ CmdPeriod.run;
 (
 {
     var noise = WhiteNoise.ar(0.5);
-    RLPF.ar(noise, MouseX.kr(200, 5000), 0.1)
+    RLPF.ar(noise, LFNoise1.kr(0.5).range(200, 5000), 0.1)
 }.play;
 )
 
