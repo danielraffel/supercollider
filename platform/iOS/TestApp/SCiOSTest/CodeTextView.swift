@@ -4,8 +4,10 @@ import UIKit
 /// Global callbacks for code evaluation
 var scEvaluateCallback: ((String) -> Void)?
 var scStopCallback: (() -> Void)?
-/// Closure to get current selected text (or all text if no selection)
+/// Closure to get current selected text (empty if nothing selected)
 var scGetSelectedText: (() -> String)?
+/// Closure to snapshot selection before focus is lost (for Play button)
+var scSnapshotSelection: (() -> String)?
 
 /// Custom UITextView subclass with SC-specific menu actions and long-press line selection
 class SCCodeTextView: UITextView {
@@ -28,9 +30,33 @@ class SCCodeTextView: UITextView {
     private func setupLongPressGesture() {
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         longPress.minimumPressDuration = 0.4
-        // Allow simultaneous recognition with the built-in pan/selection gestures
         longPress.delegate = self
         addGestureRecognizer(longPress)
+
+        // Two-finger tap → Evaluate selected code (fast, no menu)
+        let twoFingerTap = UITapGestureRecognizer(target: self, action: #selector(handleTwoFingerTap(_:)))
+        twoFingerTap.numberOfTouchesRequired = 2
+        twoFingerTap.delegate = self
+        addGestureRecognizer(twoFingerTap)
+
+        // Three-finger swipe down → Stop All (panic stop)
+        let threeFingerSwipe = UISwipeGestureRecognizer(target: self, action: #selector(handleThreeFingerSwipe(_:)))
+        threeFingerSwipe.numberOfTouchesRequired = 3
+        threeFingerSwipe.direction = .down
+        threeFingerSwipe.delegate = self
+        addGestureRecognizer(threeFingerSwipe)
+    }
+
+    @objc private func handleTwoFingerTap(_ gesture: UITapGestureRecognizer) {
+        if gesture.state == .ended {
+            evaluateSelection(nil)
+        }
+    }
+
+    @objc private func handleThreeFingerSwipe(_ gesture: UISwipeGestureRecognizer) {
+        if gesture.state == .ended {
+            stopAllSound(nil)
+        }
     }
 
     @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
@@ -177,8 +203,17 @@ class SCCodeTextView: UITextView {
             let selected = text(in: range) ?? ""
             scEvaluateCallback?(selected)
         } else {
+            // No selection — evaluate entire text
             scEvaluateCallback?(text ?? "")
         }
+    }
+
+    /// Snapshot current selection for the Play button (called before focus is lost)
+    func snapshotSelectionForPlay() -> String {
+        if let range = selectedTextRange, !range.isEmpty {
+            return text(in: range) ?? ""
+        }
+        return ""  // No selection
     }
 
     @objc func stopAllSound(_ sender: Any?) {
@@ -232,9 +267,12 @@ struct CodeTextView: UIViewRepresentable {
         textView.setContentHuggingPriority(.defaultLow, for: .vertical)
         textView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
 
-        // Wire up the get-selected-text closure
+        // Wire up selection closures
         scGetSelectedText = { [weak textView] in
             textView?.getSelectedText() ?? ""
+        }
+        scSnapshotSelection = { [weak textView] in
+            textView?.snapshotSelectionForPlay() ?? ""
         }
 
         // Keyboard inset adjustments
@@ -288,6 +326,9 @@ struct CodeTextView: UIViewRepresentable {
 
         scGetSelectedText = { [weak textView] in
             textView?.getSelectedText() ?? ""
+        }
+        scSnapshotSelection = { [weak textView] in
+            textView?.snapshotSelectionForPlay() ?? ""
         }
 
         if textView.text != text {

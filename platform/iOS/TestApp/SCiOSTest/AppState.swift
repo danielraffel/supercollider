@@ -159,13 +159,20 @@ class AppState: ObservableObject {
     }
 
     func evaluateSelection() {
+        // Try to snapshot the current selection from the text view
+        // (this works even if the text view is about to lose focus)
+        if let snapshot = scSnapshotSelection?(), !snapshot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            evaluate(snapshot)
+            lastSelection = ""
+            return
+        }
+        // Fall back to lastSelection (saved on selection change)
         let sel = lastSelection.trimmingCharacters(in: .whitespacesAndNewlines)
         if !sel.isEmpty {
-            appendPost("▷ using selection (\(sel.count) chars)\n")
             evaluate(lastSelection)
             lastSelection = ""
         } else {
-            appendPost("▷ no selection, using full file (\(codeText.count) chars)\n")
+            // No selection at all — evaluate entire file
             evaluate(codeText)
         }
     }
