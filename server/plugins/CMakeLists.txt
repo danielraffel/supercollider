@@ -154,11 +154,8 @@ if(SC_IOS)
 	list(APPEND sc_ios_static_plugins ML_UGens)
 	list(APPEND sc_ios_plugin_load_names ML_UGens)
 
-	# UIUGens for iOS: MouseX/Y/Button via touch, KeyState stub
-	add_library(UIUGens_iOS OBJECT UIUGens_iOS.cpp)
-	target_compile_definitions(UIUGens_iOS PRIVATE STATIC_PLUGINS)
-	list(APPEND sc_ios_static_plugins UIUGens_iOS)
-	list(APPEND sc_ios_plugin_load_names UIUGens)
+	# Note: UIUGens (MouseX/Y/KeyState) deferred — linker symbol ordering
+	# issue with XCFramework archive. Use LFNoise1.kr instead of MouseX.
 
 	# DiskIO if sndfile available
 	if(NOT NO_LIBSNDFILE AND SNDFILE_FOUND)

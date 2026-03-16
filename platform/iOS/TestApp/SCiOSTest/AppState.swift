@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import CoreMotion
 
 /// Central app state managing scsynth + sclang lifecycle
 class AppState: ObservableObject {
@@ -21,7 +20,6 @@ class AppState: ObservableObject {
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?
     let sclang = SclangEngine()
-    private let motionManager = CMMotionManager()
 
     private let autosaveKey = "sc_autosave_code"
     private let lastFileKey = "sc_last_file"
@@ -118,22 +116,6 @@ class AppState: ObservableObject {
         """)
 
         appendPost("Ready! Select code and tap Evaluate.\n")
-
-        // Start accelerometer for AccelX/AccelY/AccelZ UGens
-        startAccelerometer()
-    }
-
-    private func startAccelerometer() {
-        guard motionManager.isAccelerometerAvailable else { return }
-        motionManager.accelerometerUpdateInterval = 1.0 / 60.0  // 60 Hz
-        motionManager.startAccelerometerUpdates(to: .main) { data, _ in
-            guard let data = data else { return }
-            SC_iOS_SetAccelerometer(
-                Float(data.acceleration.x),
-                Float(data.acceleration.y),
-                Float(data.acceleration.z)
-            )
-        }
     }
 
     // MARK: - Status Updates
