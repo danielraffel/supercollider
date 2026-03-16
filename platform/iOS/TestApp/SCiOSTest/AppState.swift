@@ -144,7 +144,18 @@ class AppState: ObservableObject {
             appendPost("⚠ sclang not ready\n")
             return
         }
-        let _ = sclang.interpret(code)
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            appendPost("⚠ empty code\n")
+            return
+        }
+        // Log what we're evaluating (first 80 chars)
+        let preview = String(trimmed.prefix(80)).replacingOccurrences(of: "\n", with: "↵")
+        appendPost("▶ \(preview)\(trimmed.count > 80 ? "..." : "")\n")
+        let ok = sclang.interpret(trimmed)
+        if !ok {
+            appendPost("⚠ interpret returned false\n")
+        }
     }
 
     func evaluateSelection() {
