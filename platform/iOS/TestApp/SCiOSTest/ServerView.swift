@@ -53,7 +53,6 @@ struct ServerView: View {
                     gestureRow("Long-press", "Select code block (( ) aware)")
                     gestureRow("2-finger tap", "▶ Play selected code (or all)")
                     gestureRow("3-finger tap", "■ Stop all sound")
-                    gestureRow("Shake device", "■ Stop all sound")
                     gestureRow("Play ▶", "Evaluate selection or whole file")
                     gestureRow("Stop ■", "Stop all sound (CmdPeriod)")
                 }
