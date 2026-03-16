@@ -262,11 +262,21 @@ class AppState: ObservableObject {
     func toggleRecording() {
         guard sclangReady else { return }
         if isRecording {
-            let _ = sclang.interpret("Server.internal.stopRecording;")
+            let _ = sclang.interpret("""
+                Server.internal.stopRecording;
+                "Recording saved to: ".post;
+                Server.internal.recorder.path.postln;
+            """)
             isRecording = false
-            appendPost("⏺ Recording saved to Documents/\n")
+            appendPost("⏺ Recording saved\n")
         } else {
-            let _ = sclang.interpret("Server.internal.record;")
+            let _ = sclang.interpret("""
+                var s = Server.internal;
+                s.recorder.recBufSize = 65536;
+                s.recorder.recHeaderFormat = "wav";
+                s.recorder.recSampleFormat = "float";
+                s.record;
+            """)
             isRecording = true
             appendPost("⏺ Recording...\n")
         }
