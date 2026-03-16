@@ -31,6 +31,7 @@ class SCCodeTextView: UITextView {
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         longPress.minimumPressDuration = 0.4
         longPress.delegate = self
+        longPress.delaysTouchesBegan = true
         addGestureRecognizer(longPress)
 
         // Two-finger tap → Evaluate selected code (fast, no menu)
@@ -83,22 +84,37 @@ class SCCodeTextView: UITextView {
         case .began:
             longPressActive = true
 
+            // Save content offset so UITextView's selectedRange assignment can't scroll the view
+            let savedOffset = contentOffset
+
+            // Accurate touch-to-character mapping via UITextInput API
+            let touchPosition = closestPosition(to: location) ?? beginningOfDocument
+            let charIndex = offset(from: beginningOfDocument, to: touchPosition)
+
+            // Clear any stale selection at the touch point before block-finding
+            setSelectedRangeWithoutScrolling(NSRange(location: charIndex, length: 0), savedOffset: savedOffset)
+
             // Try to find enclosing ( ... ) block first
-            if let blockRange = findEnclosingBlock(at: location) {
-                selectedRange = blockRange
+            if let blockRange = findEnclosingBlock(at: charIndex) {
                 longPressAnchorLineRange = blockRange
+                setSelectedRangeWithoutScrolling(blockRange, savedOffset: savedOffset)
             } else {
                 // No block found — select current line
-                let anchorRange = lineRange(at: location)
+                let anchorRange = lineRange(at: charIndex)
                 longPressAnchorLineRange = anchorRange
                 if let r = anchorRange {
-                    selectedRange = r
+                    setSelectedRangeWithoutScrolling(r, savedOffset: savedOffset)
                 }
             }
 
         case .changed:
             guard longPressActive, let anchor = longPressAnchorLineRange else { return }
-            let currentRange = lineRange(at: location)
+
+            let savedOffset = contentOffset
+
+            let touchPosition = closestPosition(to: location) ?? beginningOfDocument
+            let charIndex = offset(from: beginningOfDocument, to: touchPosition)
+            let currentRange = lineRange(at: charIndex)
             guard let current = currentRange else { return }
 
             let start = min(anchor.location, current.location)
@@ -106,17 +122,17 @@ class SCCodeTextView: UITextView {
                 anchor.location + anchor.length,
                 current.location + current.length
             )
-            selectedRange = NSRange(location: start, length: end - start)
+            setSelectedRangeWithoutScrolling(NSRange(location: start, length: end - start), savedOffset: savedOffset)
 
         case .ended, .cancelled, .failed:
             longPressActive = false
             longPressAnchorLineRange = nil
             // Reset horizontal scroll to prevent content sliding off screen
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                if self.contentOffset.x != 0 {
-                    self.setContentOffset(CGPoint(x: 0, y: self.contentOffset.y), animated: true)
-                }
+            if contentOffset.x != 0 {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                setContentOffset(CGPoint(x: 0, y: contentOffset.y), animated: false)
+                CATransaction.commit()
             }
 
         default:
@@ -124,22 +140,25 @@ class SCCodeTextView: UITextView {
         }
     }
 
-    /// Find the INNERMOST enclosing ( ... ) block around the touch point using
+    /// Sets selectedRange while suppressing the automatic scroll UITextView triggers.
+    private func setSelectedRangeWithoutScrolling(_ range: NSRange, savedOffset: CGPoint) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        selectedRange = range
+        // Restore offset immediately so the view does not jump
+        contentOffset = savedOffset
+        CATransaction.commit()
+    }
+
+    /// Find the INNERMOST enclosing ( ... ) block around a character index using
     /// proper bracket matching.  In SC, `(` and `)` that delimit a block must be
     /// the only non-whitespace character on their respective lines.
-    private func findEnclosingBlock(at point: CGPoint) -> NSRange? {
+    private func findEnclosingBlock(at charIndex: Int) -> NSRange? {
         guard let fullText = text, !fullText.isEmpty else { return nil }
         let nsText = fullText as NSString
         let totalLength = nsText.length
         guard totalLength > 0 else { return nil }
 
-        // Find character index at touch point
-        let adjustedPoint = CGPoint(
-            x: max(textContainerInset.left, min(point.x, bounds.width - textContainerInset.right)),
-            y: max(textContainerInset.top, min(point.y, contentSize.height - 1))
-        )
-        let glyphIndex = layoutManager.glyphIndex(for: adjustedPoint, in: textContainer, fractionOfDistanceThroughGlyph: nil)
-        let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
         let idx = min(charIndex, totalLength - 1)
 
         // Helper: does the line containing `charPos` consist solely of `char`?
@@ -208,28 +227,13 @@ class SCCodeTextView: UITextView {
         return NSRange(location: blockStartIdx, length: blockEndIdx - blockStartIdx)
     }
 
-    /// Returns the NSRange of the full line (including newline) that contains the given point.
-    private func lineRange(at point: CGPoint) -> NSRange? {
+    /// Returns the NSRange of the full line (including newline) that contains the given character index.
+    private func lineRange(at charIndex: Int) -> NSRange? {
         guard let fullText = text as NSString? else { return nil }
         let totalLength = fullText.length
         guard totalLength > 0 else { return nil }
 
-        // Clamp point inside content bounds so edges still pick a line
-        let adjustedPoint = CGPoint(
-            x: max(textContainerInset.left, min(point.x, bounds.width - textContainerInset.right)),
-            y: max(textContainerInset.top, min(point.y, contentSize.height - 1))
-        )
-
-        // Closest character index to the touch point
-        let glyphIndex = layoutManager.glyphIndex(
-            for: adjustedPoint,
-            in: textContainer,
-            fractionOfDistanceThroughGlyph: nil
-        )
-        let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
         let clampedIndex = min(charIndex, totalLength - 1)
-
-        // Expand to full line range
         let lineRange = fullText.lineRange(for: NSRange(location: clampedIndex, length: 0))
         return lineRange
     }
