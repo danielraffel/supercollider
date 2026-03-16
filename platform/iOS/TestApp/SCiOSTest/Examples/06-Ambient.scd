@@ -60,7 +60,7 @@
         LFNoise0.kr(0.5).range(200, 800), 0, 0.1);
     var delay = CombL.ar(sig, 2, 1.5, 8);
     var verb = FreeVerb.ar(delay, 0.7, 0.8, 0.4);
-    verb + (sig * 0.3) ! 2
+    (verb + (sig * 0.3)) ! 2
 }.play;
 )
 
