@@ -25,9 +25,10 @@ class AppState: ObservableObject {
     private let lastFileKey = "sc_last_file"
 
     init() {
-        // Don't restore autosave — start fresh with default code each launch.
-        // Users load files from the Files tab.
-        currentFile = nil
+        if let saved = UserDefaults.standard.string(forKey: autosaveKey), !saved.isEmpty {
+            codeText = saved
+        }
+        currentFile = UserDefaults.standard.string(forKey: lastFileKey)
     }
 
     // MARK: - Boot
