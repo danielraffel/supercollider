@@ -48,21 +48,31 @@ class SCCodeTextView: UITextView {
 
     @objc private func handleTwoFingerTap(_ gesture: UITapGestureRecognizer) {
         if gesture.state == .ended {
-            evaluateSelection(nil)
+            // Use AppState.lastSelection (persists after focus loss) rather than
+            // the live selectedTextRange which may already be nil.
+            let saved = scGetSelectedText?() ?? ""
+            if !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                scEvaluateCallback?(saved)
+            } else {
+                // No selection — evaluate entire buffer
+                scEvaluateCallback?(text ?? "")
+            }
         }
     }
 
     @objc private func handleThreeFingerTap(_ gesture: UITapGestureRecognizer) {
         if gesture.state == .ended {
-            if let range = selectedTextRange, !range.isEmpty {
-                // Selection exists — evaluate it as a .free command
-                let selected = text(in: range) ?? ""
-                // Try to stop just the selected synth/pattern
-                scEvaluateCallback?(selected.trimmingCharacters(in: .whitespacesAndNewlines) + ".free;")
-            } else {
-                // No selection — stop all
-                scStopCallback?()
-            }
+            // Always stop all — CmdPeriod is the most reliable stop mechanism
+            scStopCallback?()
+        }
+    }
+
+    // MARK: - Shake (fires when this view IS first responder)
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        if motion == .motionShake {
+            scStopCallback?()
+        } else {
+            super.motionEnded(motion, with: event)
         }
     }
 
@@ -72,6 +82,9 @@ class SCCodeTextView: UITextView {
         switch gesture.state {
         case .began:
             longPressActive = true
+            // Disable scrolling during block selection to prevent fighting
+            isScrollEnabled = false
+
             // Try to find enclosing ( ... ) block first
             if let blockRange = findEnclosingBlock(at: location) {
                 selectedRange = blockRange
@@ -83,6 +96,11 @@ class SCCodeTextView: UITextView {
                 if let r = anchorRange {
                     selectedRange = r
                 }
+            }
+
+            // Scroll to show the selection without jumping to top
+            DispatchQueue.main.async { [weak self] in
+                self?.scrollRangeToVisible(self?.selectedRange ?? NSRange(location: 0, length: 0))
             }
 
         case .changed:
@@ -100,14 +118,17 @@ class SCCodeTextView: UITextView {
         case .ended, .cancelled, .failed:
             longPressActive = false
             longPressAnchorLineRange = nil
+            // Re-enable scrolling
+            isScrollEnabled = true
 
         default:
             break
         }
     }
 
-    /// Find the enclosing ( ... ) block around the touch point.
-    /// In SC, `(` on its own line starts a block and `)` on its own line ends it.
+    /// Find the INNERMOST enclosing ( ... ) block around the touch point using
+    /// proper bracket matching.  In SC, `(` and `)` that delimit a block must be
+    /// the only non-whitespace character on their respective lines.
     private func findEnclosingBlock(at point: CGPoint) -> NSRange? {
         guard let fullText = text, !fullText.isEmpty else { return nil }
         let nsText = fullText as NSString
@@ -123,33 +144,63 @@ class SCCodeTextView: UITextView {
         let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
         let idx = min(charIndex, totalLength - 1)
 
-        // Scan backwards for `(` on its own line
-        var blockStartIdx = -1
-        var pos = idx
-        while pos >= 0 {
-            let lineRange = nsText.lineRange(for: NSRange(location: pos, length: 0))
-            let lineContent = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-            if lineContent == "(" {
-                blockStartIdx = lineRange.location
-                break
-            }
-            if lineRange.location == 0 { break }
-            pos = lineRange.location - 1
+        // Helper: does the line containing `charPos` consist solely of `char`?
+        func isAloneLine(_ charPos: Int, char: Character) -> (isAlone: Bool, lineRange: NSRange) {
+            let lr = nsText.lineRange(for: NSRange(location: charPos, length: 0))
+            let content = nsText.substring(with: lr).trimmingCharacters(in: .whitespacesAndNewlines)
+            return (content == String(char), lr)
         }
 
-        guard blockStartIdx >= 0 else { return nil }
+        // Scan BACKWARDS from idx using depth counting.
+        // `)` on its own line → depth += 1  (we're inside another block)
+        // `(` on its own line → depth -= 1  (candidate open; depth==0 means this is our block)
+        var blockStartLineRange: NSRange? = nil
+        var depth = 0
+        var pos = idx
 
-        // Scan forwards for `)` on its own line
-        var blockEndIdx = -1
-        pos = idx
-        while pos < totalLength {
-            let lineRange = nsText.lineRange(for: NSRange(location: pos, length: 0))
-            let lineContent = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-            if lineContent == ")" {
-                blockEndIdx = lineRange.location + lineRange.length
-                break
+        while pos >= 0 {
+            let lr = nsText.lineRange(for: NSRange(location: pos, length: 0))
+            let content = nsText.substring(with: lr).trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if content == ")" {
+                depth += 1
+            } else if content == "(" {
+                if depth == 0 {
+                    blockStartLineRange = lr
+                    break
+                }
+                depth -= 1
             }
-            let nextPos = lineRange.location + lineRange.length
+
+            if lr.location == 0 { break }
+            pos = lr.location - 1
+        }
+
+        guard let startLR = blockStartLineRange else { return nil }
+        let blockStartIdx = startLR.location
+
+        // Scan FORWARDS from idx using depth counting.
+        // `(` on its own line → depth += 1
+        // `)` on its own line → depth -= 1  (depth==0 means this closes our block)
+        var blockEndIdx = -1
+        depth = 0
+        pos = idx
+
+        while pos < totalLength {
+            let lr = nsText.lineRange(for: NSRange(location: pos, length: 0))
+            let content = nsText.substring(with: lr).trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if content == "(" {
+                depth += 1
+            } else if content == ")" {
+                if depth == 0 {
+                    blockEndIdx = lr.location + lr.length
+                    break
+                }
+                depth -= 1
+            }
+
+            let nextPos = lr.location + lr.length
             if nextPos <= pos { break } // prevent infinite loop
             pos = nextPos
         }
