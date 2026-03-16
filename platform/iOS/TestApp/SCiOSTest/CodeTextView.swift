@@ -98,11 +98,6 @@ class SCCodeTextView: UITextView {
                 }
             }
 
-            // Scroll to show the selection without jumping to top
-            DispatchQueue.main.async { [weak self] in
-                self?.scrollRangeToVisible(self?.selectedRange ?? NSRange(location: 0, length: 0))
-            }
-
         case .changed:
             guard longPressActive, let anchor = longPressAnchorLineRange else { return }
             let currentRange = lineRange(at: location)
