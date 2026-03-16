@@ -29,9 +29,10 @@ class SCCodeTextView: UITextView {
 
     private func setupLongPressGesture() {
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
-        longPress.minimumPressDuration = 0.4
+        longPress.minimumPressDuration = 0.5
         longPress.delegate = self
         longPress.delaysTouchesBegan = true
+        longPress.cancelsTouchesInView = false
         addGestureRecognizer(longPress)
 
         // Two-finger tap → Evaluate selected code (fast, no menu)
@@ -148,6 +149,14 @@ class SCCodeTextView: UITextView {
         // Restore offset immediately so the view does not jump
         contentOffset = savedOffset
         CATransaction.commit()
+
+        // UITextView queues a scroll-to-selection that fires after CATransaction.
+        // Override it on the next tick if the user doesn't want auto-scroll.
+        if !UserDefaults.standard.bool(forKey: "sc_scroll_to_selection") {
+            DispatchQueue.main.async { [weak self] in
+                self?.setContentOffset(savedOffset, animated: false)
+            }
+        }
     }
 
     /// Find the enclosing SC evaluation block around a character index.

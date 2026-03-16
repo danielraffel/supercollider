@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ServerView: View {
     @EnvironmentObject var app: AppState
+    @AppStorage("sc_scroll_to_selection") private var scrollToSelection: Bool = false
 
     var body: some View {
         List {
@@ -59,16 +60,8 @@ struct ServerView: View {
                 .font(.caption)
             }
 
-            Section("Tips") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("• Long-press inside a ( ) block to select the whole block")
-                    Text("• Evaluate SynthDef blocks before patterns that use them")
-                    Text("• Each .play creates a new synth — they layer on top")
-                    Text("• Use x = { }.play then x.free to stop one synth")
-                    Text("• CmdPeriod.run stops everything")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
+            Section("Editor Settings") {
+                Toggle("Scroll to show full selection", isOn: $scrollToSelection)
             }
 
             Section("Info") {
