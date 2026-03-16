@@ -15,7 +15,7 @@ class AppState: ObservableObject {
     @Published var currentFile: String? = nil
     @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
     /// Last known text selection (saved before text view loses focus)
-    var lastSelection: String = ""
+    @Published var lastSelection: String = ""
 
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?

@@ -14,6 +14,7 @@ struct EditorView: View {
             // Code editor takes all remaining space
             CodeTextView(
                 text: $app.codeText,
+                lastSelection: app.lastSelection,
                 onEvaluate: { app.evaluateSelection() },
                 onEvaluateCode: { code in app.evaluateCode(code) },
                 onStop: { app.stopAll() },

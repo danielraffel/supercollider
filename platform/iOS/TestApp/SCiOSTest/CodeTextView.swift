@@ -150,6 +150,8 @@ extension SCCodeTextView: UIGestureRecognizerDelegate {
 /// UITextView wrapper with SC syntax highlighting
 struct CodeTextView: UIViewRepresentable {
     @Binding var text: String
+    /// Mirrors AppState.lastSelection so updateUIView can detect when it is cleared after evaluation
+    var lastSelection: String = ""
     var onEvaluate: (() -> Void)?
     var onEvaluateCode: ((String) -> Void)?
     var onStop: (() -> Void)?
@@ -177,6 +179,31 @@ struct CodeTextView: UIViewRepresentable {
             textView?.getSelectedText() ?? ""
         }
 
+        // Keyboard inset adjustments
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillShowNotification,
+            object: nil,
+            queue: .main
+        ) { [weak textView] notification in
+            guard let textView = textView else { return }
+            guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            let keyboardHeight = keyboardFrame.height
+            let safeAreaBottom = textView.window?.safeAreaInsets.bottom ?? 0
+            let inset = max(0, keyboardHeight - safeAreaBottom)
+            textView.contentInset.bottom = inset
+            textView.verticalScrollIndicatorInsets.bottom = inset
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillHideNotification,
+            object: nil,
+            queue: .main
+        ) { [weak textView] _ in
+            guard let textView = textView else { return }
+            textView.contentInset.bottom = 16
+            textView.verticalScrollIndicatorInsets.bottom = 0
+        }
+
         return textView
     }
 
@@ -186,6 +213,12 @@ struct CodeTextView: UIViewRepresentable {
         context.coordinator.stopAll = onStop
         context.coordinator.onEvaluate = onEvaluate
         context.coordinator.onSelectionChanged = onSelectionChanged
+
+        // When AppState.lastSelection is cleared (after evaluation), reset the dedup
+        // tracker so the user can re-select the same text and have it register again.
+        if lastSelection.isEmpty {
+            context.coordinator.resetSelectionTracking()
+        }
 
         // Wire the global UIKit callbacks so SCCodeTextView can reach them
         scEvaluateCallback = { code in
@@ -221,20 +254,29 @@ struct CodeTextView: UIViewRepresentable {
         /// Callback to save selection to AppState.lastSelection
         var onSelectionChanged: ((String) -> Void)?
         private var highlightTimer: Timer?
+        /// Tracks the last reported selection to avoid spurious updates during scrolling
+        private var lastReportedSelection: String = ""
 
         init(text: Binding<String>, onEvaluate: (() -> Void)?) {
             self.text = text
             self.onEvaluate = onEvaluate
         }
 
+        /// Called when AppState.lastSelection is cleared so the same text can be re-selected
+        func resetSelectionTracking() {
+            lastReportedSelection = ""
+        }
+
         func textViewDidChangeSelection(_ textView: UITextView) {
-            // Save current selection so Play button can use it even after focus lost
-            if let range = textView.selectedTextRange, !range.isEmpty {
-                let selected = textView.text(in: range) ?? ""
-                onSelectionChanged?(selected)
-            } else {
-                onSelectionChanged?("")
-            }
+            // Only update lastSelection when there is a non-empty selection.
+            // Do NOT clear it when the selection becomes empty (e.g. on focus loss or
+            // after the keyboard dismisses) so the Play button can still use it.
+            guard let range = textView.selectedTextRange, !range.isEmpty else { return }
+            let selected = textView.text(in: range) ?? ""
+            // Skip if the selected text hasn't actually changed (fires constantly during scroll)
+            guard selected != lastReportedSelection else { return }
+            lastReportedSelection = selected
+            onSelectionChanged?(selected)
         }
 
         func textViewDidChange(_ textView: UITextView) {
