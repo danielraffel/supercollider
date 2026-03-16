@@ -24,10 +24,16 @@ class AppState: ObservableObject {
     private let autosaveKey = "sc_autosave_code"
     private let lastFileKey = "sc_last_file"
 
+    private static let currentVersion = 2  // Bump to reset autosave after breaking changes
+
     init() {
-        if let saved = UserDefaults.standard.string(forKey: autosaveKey), !saved.isEmpty {
+        let savedVersion = UserDefaults.standard.integer(forKey: "sc_autosave_version")
+        if savedVersion == Self.currentVersion,
+           let saved = UserDefaults.standard.string(forKey: autosaveKey), !saved.isEmpty {
             codeText = saved
         }
+        // Save current version so future launches restore normally
+        UserDefaults.standard.set(Self.currentVersion, forKey: "sc_autosave_version")
         currentFile = UserDefaults.standard.string(forKey: lastFileKey)
     }
 
@@ -172,8 +178,17 @@ class AppState: ObservableObject {
             evaluate(lastSelection)
             lastSelection = ""
         } else {
-            // No selection at all — evaluate entire file
-            evaluate(codeText)
+            // No selection — check if file is safe to evaluate as a whole
+            let trimmed = codeText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hasMultipleBlocks = trimmed.components(separatedBy: "\n").filter {
+                $0.trimmingCharacters(in: .whitespaces) == "("
+            }.count > 1
+
+            if hasMultipleBlocks {
+                appendPost("⚠ Multi-block file — select a block first (long-press)\n")
+            } else {
+                evaluate(codeText)
+            }
         }
     }
 
