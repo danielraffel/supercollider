@@ -196,6 +196,53 @@ class AppState: ObservableObject {
         evaluate(code)
     }
 
+    /// Auto-evaluate all SynthDef blocks in the current code
+    /// Called when a file is opened so patterns "just work"
+    func autoLoadSynthDefs() {
+        guard sclangReady else { return }
+        let text = codeText
+        let nsText = text as NSString
+        let totalLength = nsText.length
+        guard totalLength > 0 else { return }
+
+        // Find all ( ... ) blocks that contain SynthDef
+        var pos = 0
+        var defsFound = 0
+        while pos < totalLength {
+            let lineRange = nsText.lineRange(for: NSRange(location: pos, length: 0))
+            let lineContent = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if lineContent == "(" {
+                // Found a block start — scan forward for matching )
+                var depth = 1
+                var blockEnd = lineRange.location + lineRange.length
+                while blockEnd < totalLength && depth > 0 {
+                    let nextLine = nsText.lineRange(for: NSRange(location: blockEnd, length: 0))
+                    let nextContent = nsText.substring(with: nextLine).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if nextContent == "(" { depth += 1 }
+                    else if nextContent == ")" { depth -= 1 }
+                    blockEnd = nextLine.location + nextLine.length
+                }
+
+                // Check if block contains SynthDef
+                let blockRange = NSRange(location: lineRange.location, length: blockEnd - lineRange.location)
+                let blockText = nsText.substring(with: blockRange)
+                if blockText.contains("SynthDef") && blockText.contains(".add") {
+                    let _ = sclang.interpret(blockText)
+                    defsFound += 1
+                }
+            }
+
+            let nextPos = lineRange.location + lineRange.length
+            if nextPos <= pos { break }
+            pos = nextPos
+        }
+
+        if defsFound > 0 {
+            appendPost("Auto-loaded \(defsFound) SynthDef block(s)\n")
+        }
+    }
+
     func stopAll() {
         if sclangReady {
             // CmdPeriod stops all patterns, routines, and frees synths

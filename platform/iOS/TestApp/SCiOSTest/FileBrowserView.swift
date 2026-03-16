@@ -89,6 +89,10 @@ struct FileBrowserView: View {
             app.codeText = content
             app.currentFile = file.path
             app.autosave()
+            // Auto-evaluate SynthDef blocks so patterns work immediately
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                app.autoLoadSynthDefs()
+            }
         }
     }
 
