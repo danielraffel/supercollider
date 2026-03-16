@@ -561,11 +561,19 @@ struct CodeTextView: UIViewRepresentable {
             // Skip if the selected text hasn't actually changed (fires constantly during scroll)
             guard selected != lastReportedSelection else { return }
             lastReportedSelection = selected
-            onSelectionChanged?(selected)
+            // Defer to next run loop to avoid "Publishing changes from within view updates"
+            let callback = onSelectionChanged
+            DispatchQueue.main.async {
+                callback?(selected)
+            }
         }
 
         func textViewDidChange(_ textView: UITextView) {
-            text.wrappedValue = textView.text
+            // Defer binding update to avoid "Publishing changes from within view updates"
+            let newText = textView.text ?? ""
+            DispatchQueue.main.async { [weak self] in
+                self?.text.wrappedValue = newText
+            }
 
             highlightTimer?.invalidate()
             highlightTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
