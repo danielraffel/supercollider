@@ -150,81 +150,198 @@ class SCCodeTextView: UITextView {
         CATransaction.commit()
     }
 
-    /// Find the INNERMOST enclosing ( ... ) block around a character index using
-    /// proper bracket matching.  In SC, `(` and `)` that delimit a block must be
-    /// the only non-whitespace character on their respective lines.
+    /// Find the enclosing SC evaluation block around a character index.
+    ///
+    /// In SuperCollider, an evaluation block is delimited by `(` and `)` that are
+    /// each the ONLY non-whitespace character on their respective lines.  However,
+    /// we must count ALL parentheses (including inline ones like `Pbind(`, `Pseq(`)
+    /// to correctly track nesting depth — the bare-line `(` / `)` are only the
+    /// *boundaries*, not the only parens in the document.
+    ///
+    /// Algorithm:
+    ///   Backward pass  — scan char-by-char from touch point toward start of text,
+    ///     tracking full paren depth.  When we encounter a `(` that brings depth
+    ///     to 0 AND is the only non-whitespace on its line → that is the block open.
+    ///   Forward pass   — scan char-by-char from touch point toward end of text,
+    ///     tracking full paren depth.  When we encounter a `)` that brings depth
+    ///     to 0 AND is the only non-whitespace on its line → that is the block close.
+    ///
+    /// Parens inside line comments (`// …`), block comments (`/* … */`), double-quoted
+    /// strings, and single-quoted symbols are ignored.
     private func findEnclosingBlock(at charIndex: Int) -> NSRange? {
         guard let fullText = text, !fullText.isEmpty else { return nil }
-        let nsText = fullText as NSString
-        let totalLength = nsText.length
+        let chars = Array(fullText.unicodeScalars)
+        let totalLength = chars.count
         guard totalLength > 0 else { return nil }
 
         let idx = min(charIndex, totalLength - 1)
 
-        // Helper: does the line containing `charPos` consist solely of `char`?
-        func isAloneLine(_ charPos: Int, char: Character) -> (isAlone: Bool, lineRange: NSRange) {
-            let lr = nsText.lineRange(for: NSRange(location: charPos, length: 0))
-            let content = nsText.substring(with: lr).trimmingCharacters(in: .whitespacesAndNewlines)
-            return (content == String(char), lr)
+        // MARK: helpers
+
+        /// Return true if the character at position `p` is the only non-whitespace
+        /// character on its line.  Also returns the (start, end) byte offsets of that
+        /// line (end is exclusive, includes the newline if present).
+        func isAloneOnLine(_ p: Int) -> (alone: Bool, lineStart: Int, lineEnd: Int) {
+            // Walk backward to find line start
+            var ls = p
+            while ls > 0 {
+                let prev = chars[ls - 1]
+                if prev == "\n" || prev == "\r" { break }
+                ls -= 1
+            }
+            // Walk forward from line start to find line end (position just after newline)
+            var lineEnd = ls
+            while lineEnd < totalLength {
+                let c = chars[lineEnd]
+                if c == "\n" { lineEnd += 1; break }
+                if c == "\r" {
+                    lineEnd += 1
+                    if lineEnd < totalLength && chars[lineEnd] == "\n" { lineEnd += 1 }
+                    break
+                }
+                lineEnd += 1
+            }
+            // Check that p is the only non-whitespace char on [ls, lineEnd)
+            var alone = true
+            for i in ls..<lineEnd {
+                let c = chars[i]
+                if c == " " || c == "\t" || c == "\r" || c == "\n" { continue }
+                if i != p { alone = false; break }
+            }
+            return (alone, ls, lineEnd)
         }
 
-        // Scan BACKWARDS from idx using depth counting.
-        // `)` on its own line → depth += 1  (we're inside another block)
-        // `(` on its own line → depth -= 1  (candidate open; depth==0 means this is our block)
-        var blockStartLineRange: NSRange? = nil
+        // MARK: Backward scan to find block open
+
+        // We walk backwards character by character, adjusting depth for every real
+        // `(` and `)` we encounter (skipping those inside comments/strings).
+        // When depth reaches 0 on a `(` that is alone on its line, that's our open.
+
+        /// Classify the character at position `p` considering context.
+        /// Returns the "real" character if it's a paren that should count, or nil.
+        /// For the backward pass we need to know whether a given position is inside
+        /// a comment or string — we do that with a lightweight forward pre-scan.
+
+        // Build a boolean array: isInert[i] == true means the char at i is inside
+        // a comment or string literal and should NOT be counted as a paren.
+        var isInert = [Bool](repeating: false, count: totalLength)
+        do {
+            var i = 0
+            while i < totalLength {
+                let c = chars[i]
+                // Line comment: // … \n
+                if c == "/" && i + 1 < totalLength && chars[i + 1] == "/" {
+                    let start = i
+                    i += 2
+                    while i < totalLength && chars[i] != "\n" { i += 1 }
+                    // mark start..<i as inert (don't include the newline itself)
+                    for k in start..<i { isInert[k] = true }
+                    continue
+                }
+                // Block comment: /* … */
+                if c == "/" && i + 1 < totalLength && chars[i + 1] == "*" {
+                    let start = i
+                    i += 2
+                    while i + 1 < totalLength {
+                        if chars[i] == "*" && chars[i + 1] == "/" { i += 2; break }
+                        i += 1
+                    }
+                    for k in start..<i { isInert[k] = true }
+                    continue
+                }
+                // Double-quoted string "…"  (SC strings don't span lines in practice)
+                if c == "\"" {
+                    let start = i
+                    i += 1
+                    while i < totalLength {
+                        if chars[i] == "\\" { i += 2; continue } // escape
+                        if chars[i] == "\"" { i += 1; break }
+                        i += 1
+                    }
+                    for k in start..<i { isInert[k] = true }
+                    continue
+                }
+                // Single-quoted symbol '…'
+                if c == "'" {
+                    let start = i
+                    i += 1
+                    while i < totalLength {
+                        if chars[i] == "\\" { i += 2; continue }
+                        if chars[i] == "'" { i += 1; break }
+                        i += 1
+                    }
+                    for k in start..<i { isInert[k] = true }
+                    continue
+                }
+                i += 1
+            }
+        }
+
+        // MARK: Backward pass
+
+        var blockStartPos: Int? = nil
         var depth = 0
-        var pos = idx
 
-        while pos >= 0 {
-            let lr = nsText.lineRange(for: NSRange(location: pos, length: 0))
-            let content = nsText.substring(with: lr).trimmingCharacters(in: .whitespacesAndNewlines)
-
-            if content == ")" {
-                depth += 1
-            } else if content == "(" {
-                if depth == 0 {
-                    blockStartLineRange = lr
-                    break
+        var p = idx
+        while p >= 0 {
+            if !isInert[p] {
+                let c = chars[p]
+                if c == ")" {
+                    depth += 1
+                } else if c == "(" {
+                    if depth == 0 {
+                        // Candidate: is it alone on its line?
+                        let info = isAloneOnLine(p)
+                        if info.alone {
+                            blockStartPos = info.lineStart
+                            break
+                        }
+                        // Not alone on its line → cannot be a SC block open;
+                        // depth stays 0 and we keep scanning backward.
+                    } else {
+                        depth -= 1
+                    }
                 }
-                depth -= 1
             }
-
-            if lr.location == 0 { break }
-            pos = lr.location - 1
+            p -= 1
         }
 
-        guard let startLR = blockStartLineRange else { return nil }
-        let blockStartIdx = startLR.location
+        guard let startLineStart = blockStartPos else { return nil }
 
-        // Scan FORWARDS from idx using depth counting.
-        // `(` on its own line → depth += 1
-        // `)` on its own line → depth -= 1  (depth==0 means this closes our block)
-        var blockEndIdx = -1
+        // MARK: Forward pass
+
+        var blockEndPos: Int? = nil
         depth = 0
-        pos = idx
 
-        while pos < totalLength {
-            let lr = nsText.lineRange(for: NSRange(location: pos, length: 0))
-            let content = nsText.substring(with: lr).trimmingCharacters(in: .whitespacesAndNewlines)
-
-            if content == "(" {
-                depth += 1
-            } else if content == ")" {
-                if depth == 0 {
-                    blockEndIdx = lr.location + lr.length
-                    break
+        p = idx
+        while p < totalLength {
+            if !isInert[p] {
+                let c = chars[p]
+                if c == "(" {
+                    depth += 1
+                } else if c == ")" {
+                    if depth == 0 {
+                        let info = isAloneOnLine(p)
+                        if info.alone {
+                            blockEndPos = info.lineEnd
+                            break
+                        }
+                        // Not alone on its line — regular close paren, depth goes negative;
+                        // clamp to 0 so we keep scanning for the real block close.
+                        // (depth was 0 and this paren is not a bare-line one, so it is an
+                        //  unmatched inline `)` relative to our scan start — ignore it.)
+                    } else {
+                        depth -= 1
+                    }
                 }
-                depth -= 1
             }
-
-            let nextPos = lr.location + lr.length
-            if nextPos <= pos { break } // prevent infinite loop
-            pos = nextPos
+            p += 1
         }
 
-        guard blockEndIdx > blockStartIdx else { return nil }
+        guard let endPos = blockEndPos else { return nil }
+        guard endPos > startLineStart else { return nil }
 
-        return NSRange(location: blockStartIdx, length: blockEndIdx - blockStartIdx)
+        return NSRange(location: startLineStart, length: endPos - startLineStart)
     }
 
     /// Returns the NSRange of the full line (including newline) that contains the given character index.
