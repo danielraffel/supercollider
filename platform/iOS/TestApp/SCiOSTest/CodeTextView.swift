@@ -82,8 +82,6 @@ class SCCodeTextView: UITextView {
         switch gesture.state {
         case .began:
             longPressActive = true
-            // Disable scrolling during block selection to prevent fighting
-            isScrollEnabled = false
 
             // Try to find enclosing ( ... ) block first
             if let blockRange = findEnclosingBlock(at: location) {
@@ -113,8 +111,13 @@ class SCCodeTextView: UITextView {
         case .ended, .cancelled, .failed:
             longPressActive = false
             longPressAnchorLineRange = nil
-            // Re-enable scrolling
-            isScrollEnabled = true
+            // Reset horizontal scroll to prevent content sliding off screen
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                if self.contentOffset.x != 0 {
+                    self.setContentOffset(CGPoint(x: 0, y: self.contentOffset.y), animated: true)
+                }
+            }
 
         default:
             break
