@@ -159,11 +159,13 @@ class AppState: ObservableObject {
     }
 
     func evaluateSelection() {
-        // If there's a saved selection, evaluate that; otherwise evaluate whole file
-        if !lastSelection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let sel = lastSelection.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !sel.isEmpty {
+            appendPost("▷ using selection (\(sel.count) chars)\n")
             evaluate(lastSelection)
-            lastSelection = ""  // Clear after use
+            lastSelection = ""
         } else {
+            appendPost("▷ no selection, using full file (\(codeText.count) chars)\n")
             evaluate(codeText)
         }
     }
