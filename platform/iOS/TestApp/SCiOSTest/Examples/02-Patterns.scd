@@ -4,7 +4,9 @@
 
 // Patterns are SC's powerful sequencing system.
 
-// First, define some instruments:
+// IMPORTANT: Evaluate this block FIRST
+// (long-press to select, then Play)
+// It defines the instruments used below.
 (
 SynthDef(\sine, {|freq=440, amp=0.3, dur=0.3|
     var env = EnvGen.kr(Env.perc(0.01, dur), doneAction: 2);
