@@ -46,14 +46,30 @@ struct ServerView: View {
 
                 Button("Recompile Class Library") { app.recompile() }
                     .disabled(!app.sclangReady)
+            }
 
-                Button("Check Server Status") {
-                    app.evaluate("""
-                        "Server running: ".post; Server.internal.serverRunning.postln;
-                        "Sample rate: ".post; Server.internal.sampleRate.postln;
-                    """)
+            Section("Gestures") {
+                VStack(alignment: .leading, spacing: 8) {
+                    gestureRow("Long-press", "Select code block")
+                    gestureRow("Two-finger tap", "Evaluate selected code")
+                    gestureRow("Play button ▶", "Evaluate selection or whole file")
+                    gestureRow("Stop button ■", "Stop all sound (CmdPeriod)")
+                    gestureRow("Evaluate (menu)", "Run selected code")
+                    gestureRow("Stop All (menu)", "Stop all sound")
                 }
-                .disabled(!app.sclangReady)
+                .font(.caption)
+            }
+
+            Section("Tips") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("• Long-press inside a ( ) block to select the whole block")
+                    Text("• Evaluate SynthDef blocks before patterns that use them")
+                    Text("• Each .play creates a new synth — they layer on top")
+                    Text("• Use x = { }.play then x.free to stop one synth")
+                    Text("• CmdPeriod.run stops everything")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
             }
 
             Section("Info") {
@@ -62,5 +78,15 @@ struct ServerView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    private func gestureRow(_ gesture: String, _ action: String) -> some View {
+        HStack {
+            Text(gesture)
+                .fontWeight(.medium)
+                .frame(width: 140, alignment: .leading)
+            Text(action)
+                .foregroundColor(.secondary)
+        }
     }
 }
