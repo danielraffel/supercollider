@@ -141,21 +141,40 @@ class SCCodeTextView: UITextView {
         }
     }
 
+    private var scrollLockOffset: CGPoint?
+    private var scrollLockFrames = 0
+
     /// Sets selectedRange while suppressing the automatic scroll UITextView triggers.
     private func setSelectedRangeWithoutScrolling(_ range: NSRange, savedOffset: CGPoint) {
+        let shouldLock = !UserDefaults.standard.bool(forKey: "sc_scroll_to_selection")
+
+        if shouldLock {
+            // Lock the scroll position for several frames to defeat UITextView's
+            // multiple deferred scroll-to-selection passes
+            scrollLockOffset = savedOffset
+            scrollLockFrames = 6  // ~100ms at 60fps
+        }
+
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         selectedRange = range
-        // Restore offset immediately so the view does not jump
         contentOffset = savedOffset
         CATransaction.commit()
 
-        // UITextView queues a scroll-to-selection that fires after CATransaction.
-        // Override it on the next tick if the user doesn't want auto-scroll.
-        if !UserDefaults.standard.bool(forKey: "sc_scroll_to_selection") {
-            DispatchQueue.main.async { [weak self] in
-                self?.setContentOffset(savedOffset, animated: false)
+        if shouldLock {
+            // Keep restoring for several frames
+            func restoreOffset(_ count: Int) {
+                guard count > 0 else {
+                    self.scrollLockOffset = nil
+                    return
+                }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, let locked = self.scrollLockOffset else { return }
+                    self.setContentOffset(locked, animated: false)
+                    restoreOffset(count - 1)
+                }
             }
+            restoreOffset(scrollLockFrames)
         }
     }
 
