@@ -57,11 +57,7 @@ class AppState: ObservableObject {
             serverRunning = true
             startCAPIStatusUpdates()
             appendPost("Audio engine running ✓\n")
-
-            // Create default group (Group 1) after server processes first tick
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                let _ = self?.sendOSC(OSCMessage.build("/g_new", [Int32(1), Int32(0), Int32(0)]))
-            }
+            // Default Group 1 is created automatically in World_New on iOS
         } else {
             appendPost("ERROR: Audio engine failed to start\n")
             return
@@ -120,6 +116,47 @@ class AppState: ObservableObject {
         """)
 
         appendPost("Ready! Select code and tap Evaluate.\n")
+
+        // Run automated audio test
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.runAudioTest()
+        }
+    }
+
+    private func runAudioTest() {
+        appendPost("--- Audio Test ---\n")
+
+        // Test 1: Check Group 1 exists by creating a synth
+        let _ = sclang.interpret("{ SinOsc.ar(880, 0, 0.2) }.play;")
+        appendPost("Sent .play\n")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self = self else { return }
+            let s1 = self.numSynths
+            self.appendPost("Synths after play: \(s1)\n")
+
+            // Test 2: Stop
+            self.stopAll()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                let s2 = self.numSynths
+                self.appendPost("Synths after stop: \(s2)\n")
+
+                if s1 > 0 && s2 == 0 {
+                    self.appendPost("✅ Audio test PASSED\n")
+                } else if s1 == 0 {
+                    self.appendPost("❌ Synth creation FAILED\n")
+                    // Debug: check server state
+                    let _ = self.sclang.interpret("""
+                        "Debug: serverRunning=".post; Server.internal.serverRunning.postln;
+                        "Debug: addr=".post; Server.internal.addr.postln;
+                        "Debug: addr.addr=".post; Server.internal.addr.addr.postln;
+                    """)
+                } else {
+                    self.appendPost("❌ Stop FAILED (synths still \(s2))\n")
+                }
+                self.appendPost("--- End Test ---\n")
+            }
+        }
     }
 
     // MARK: - Status Updates
@@ -169,9 +206,10 @@ class AppState: ObservableObject {
     }
 
     func stopAll() {
-        // Free ALL synths via C API — direct to World, no sclang involvement
-        // /g_freeAll on group 1 frees all children (synths) of the default group
-        let _ = sendOSC(OSCMessage.build("/g_freeAll", [Int32(1)]))
+        // Use sclang to free all and clean up properly
+        if sclangReady {
+            let _ = sclang.interpret("Server.internal.freeAll;")
+        }
         appendPost("⏹ stopped\n")
     }
 

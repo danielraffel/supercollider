@@ -390,6 +390,20 @@ World* World_New(WorldOptions* inOptions) {
         if (err)
             throw err;
 
+#if defined(SC_IOS)
+        // Create default group (Group 1) immediately on iOS.
+        // On desktop, sclang's Server.initTree creates this via OSC,
+        // but on iOS the timing between C API boot and sclang init
+        // makes OSC-based creation unreliable.
+        {
+            Group* defaultGroup = nullptr;
+            int gErr = Group_New(world, 1, &defaultGroup);
+            if (gErr == 0 && defaultGroup) {
+                Group_AddHead(world->mTopGroup, &defaultGroup->mNode);
+            }
+        }
+#endif
+
         world->mRealTime = inOptions->mRealTime;
 
         world->ft = &gInterfaceTable;
