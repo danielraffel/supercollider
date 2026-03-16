@@ -23,7 +23,10 @@ struct SCiOSTestApp: App {
     }
 }
 
-/// Detects shake gesture and calls the action
+/// Detects shake gesture and calls the action.
+/// Note: When the code editor's keyboard is active, SCCodeTextView (which IS first
+/// responder) handles shake directly via its own motionEnded override.  This view
+/// controller acts as a secondary fallback for when the keyboard is dismissed.
 struct ShakeDetectorView: UIViewControllerRepresentable {
     let onShake: () -> Void
 
@@ -43,6 +46,8 @@ struct ShakeDetectorView: UIViewControllerRepresentable {
         override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
             if motion == .motionShake {
                 onShake?()
+            } else {
+                super.motionEnded(motion, with: event)
             }
         }
 
@@ -50,6 +55,27 @@ struct ShakeDetectorView: UIViewControllerRepresentable {
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
+            becomeFirstResponder()
+        }
+
+        // Re-assert first responder whenever the window's keyboard disappears
+        // (i.e. when the code editor resigns first responder)
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(keyboardDidHide),
+                name: UIResponder.keyboardDidHideNotification,
+                object: nil
+            )
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardDidHideNotification, object: nil)
+        }
+
+        @objc private func keyboardDidHide() {
             becomeFirstResponder()
         }
     }
