@@ -73,9 +73,8 @@ Ppar([
         \dur, 1,
         \amp, 0.8),
     Pbind(\instrument, \snare,
-        \dur, 1,
-        \amp, 0.5,
-        \lag, 0.5),
+        \dur, Pseq([Rest(0.5), 0.5], inf),
+        \amp, 0.5),
     Pbind(\instrument, \hat,
         \dur, 0.25,
         \amp, 0.3)
