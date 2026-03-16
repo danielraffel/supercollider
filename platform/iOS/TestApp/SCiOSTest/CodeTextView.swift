@@ -76,8 +76,9 @@ class SCCodeTextView: UITextView {
     /// Find the enclosing ( ... ) block around the touch point.
     /// In SC, `(` on its own line starts a block and `)` on its own line ends it.
     private func findEnclosingBlock(at point: CGPoint) -> NSRange? {
-        guard let fullText = text as NSString? else { return nil }
-        let totalLength = fullText.length
+        guard let fullText = text, !fullText.isEmpty else { return nil }
+        let nsText = fullText as NSString
+        let totalLength = nsText.length
         guard totalLength > 0 else { return nil }
 
         // Find character index at touch point
@@ -89,45 +90,40 @@ class SCCodeTextView: UITextView {
         let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
         let idx = min(charIndex, totalLength - 1)
 
-        let str = fullText as String
-
-        // Scan backwards for `(` at the start of a line (possibly with whitespace)
-        var blockStart: String.Index? = nil
-        let startSearchIdx = str.index(str.startIndex, offsetBy: min(idx, str.count))
-        var scanIdx = startSearchIdx
-        while scanIdx > str.startIndex {
-            // Find start of this line
-            let lineStart = str[...scanIdx].lastIndex(of: "\n").map { str.index(after: $0) } ?? str.startIndex
-            let lineContent = str[lineStart...scanIdx].trimmingCharacters(in: .whitespaces)
-            if lineContent.hasPrefix("(") && lineContent.count <= 2 {
-                blockStart = lineStart
+        // Scan backwards for `(` on its own line
+        var blockStartIdx = -1
+        var pos = idx
+        while pos >= 0 {
+            let lineRange = nsText.lineRange(for: NSRange(location: pos, length: 0))
+            let lineContent = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            if lineContent == "(" {
+                blockStartIdx = lineRange.location
                 break
             }
-            if lineStart == str.startIndex { break }
-            scanIdx = str.index(before: lineStart)
+            if lineRange.location == 0 { break }
+            pos = lineRange.location - 1
         }
 
-        guard let bStart = blockStart else { return nil }
+        guard blockStartIdx >= 0 else { return nil }
 
-        // Scan forwards for `)` at the start of a line
-        var blockEnd: String.Index? = nil
-        scanIdx = startSearchIdx
-        while scanIdx < str.endIndex {
-            let lineEnd = str[scanIdx...].firstIndex(of: "\n") ?? str.endIndex
-            let lineContent = str[scanIdx..<lineEnd].trimmingCharacters(in: .whitespaces)
+        // Scan forwards for `)` on its own line
+        var blockEndIdx = -1
+        pos = idx
+        while pos < totalLength {
+            let lineRange = nsText.lineRange(for: NSRange(location: pos, length: 0))
+            let lineContent = nsText.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
             if lineContent == ")" {
-                blockEnd = lineEnd
+                blockEndIdx = lineRange.location + lineRange.length
                 break
             }
-            if lineEnd == str.endIndex { break }
-            scanIdx = str.index(after: lineEnd)
+            let nextPos = lineRange.location + lineRange.length
+            if nextPos <= pos { break } // prevent infinite loop
+            pos = nextPos
         }
 
-        guard let bEnd = blockEnd else { return nil }
+        guard blockEndIdx > blockStartIdx else { return nil }
 
-        let nsStart = str.distance(from: str.startIndex, to: bStart)
-        let nsEnd = str.distance(from: str.startIndex, to: bEnd)
-        return NSRange(location: nsStart, length: nsEnd - nsStart)
+        return NSRange(location: blockStartIdx, length: blockEndIdx - blockStartIdx)
     }
 
     /// Returns the NSRange of the full line (including newline) that contains the given point.
