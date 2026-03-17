@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var app: AppState
     @State private var fileSheetDetent: PresentationDetent = .medium
-    @State private var sheetReady = false
+    @State private var showSheet = true
 
     var body: some View {
         NavigationStack {
@@ -14,8 +14,8 @@ struct ContentView: View {
                         .toolbar(.hidden, for: .navigationBar)
                 }
         }
-        // File browser sheet — always presented, hidden when editor is showing
-        .sheet(isPresented: $sheetReady) {
+        // File browser sheet — shown when not in editor
+        .sheet(isPresented: $showSheet) {
             FileBrowserSheet(sheetDetent: $fileSheetDetent)
                 .environmentObject(app)
                 .presentationDetents([.medium, .large], selection: $fileSheetDetent)
@@ -28,15 +28,23 @@ struct ContentView: View {
             PostOverlayView()
                 .environmentObject(app)
         }
-        .onAppear {
-            // Present sheet once on launch, never dismiss it
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                sheetReady = true
+        .onChange(of: app.showEditor) { _, isEditing in
+            if isEditing {
+                // Hide sheet instantly (no animation) when entering editor
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    showSheet = false
+                }
+            } else {
+                // Show sheet without animation when returning from editor
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    showSheet = true
+                }
             }
         }
-        // When editor shows/hides, just let the nav stack handle it
-        // The sheet stays presented underneath
-        .onChange(of: app.showEditor) { _, _ in }
     }
 }
 
