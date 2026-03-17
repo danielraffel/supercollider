@@ -222,9 +222,11 @@ struct FileBrowserView: View {
             app.currentFile = file.path
             app.isEditing = alwaysEditMode
             app.autosave()
-            // Switch to Editor tab
-            withAnimation {
-                app.selectedTab = 0
+            // Navigate to editor
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                app.showEditor = true
+            } else {
+                withAnimation { app.selectedTab = 0 }
             }
             if autoLoadSynthDefs {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

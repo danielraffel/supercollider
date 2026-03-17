@@ -4,29 +4,61 @@ struct ContentView: View {
     @EnvironmentObject var app: AppState
 
     init() {
-        // Force classic bottom tab bar style
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor.black
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
-
-        // On iPadOS 18+, prevent the new sidebar-style tab bar
-        if #available(iOS 18.0, *) {
-            UITabBar.appearance().isHidden = false
-        }
     }
 
     var body: some View {
+        Group {
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                iPadLayout
+            } else {
+                iPhoneLayout
+            }
+        }
+        .sheet(isPresented: $app.showPost) {
+            PostOverlayView()
+                .environmentObject(app)
+        }
+        .sheet(isPresented: $app.showSettings) {
+            SettingsView()
+                .environmentObject(app)
+        }
+    }
+
+    // MARK: - iPad: NavigationStack (Files → Editor push)
+
+    var iPadLayout: some View {
+        NavigationStack {
+            FileBrowserView()
+                .navigationTitle("SuperCollider")
+                .navigationBarTitleDisplayMode(.large)
+                .navigationDestination(isPresented: $app.showEditor) {
+                    EditorView()
+                        .navigationBarBackButtonHidden(true)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button {
+                                    app.showEditor = false
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "chevron.left")
+                                        Text("Files")
+                                    }
+                                }
+                            }
+                        }
+                }
+        }
+    }
+
+    // MARK: - iPhone: TabView (bottom bar)
+
+    var iPhoneLayout: some View {
         tabContent
-            .sheet(isPresented: $app.showPost) {
-                PostOverlayView()
-                    .environmentObject(app)
-            }
-            .sheet(isPresented: $app.showSettings) {
-                SettingsView()
-                    .environmentObject(app)
-            }
     }
 
     @ViewBuilder
