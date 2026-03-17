@@ -53,7 +53,11 @@ struct ContentView: View {
             case .editor, .none:
                 EditorView()
             case .files:
-                FileBrowserView()
+                NavigationStack {
+                    FileBrowserView()
+                        .navigationTitle("Files")
+                        .navigationBarTitleDisplayMode(.inline)
+                }
             }
         }
     }
@@ -68,11 +72,15 @@ struct ContentView: View {
                 }
                 .tag(0)
 
-            FileBrowserView()
-                .tabItem {
-                    Label("Files", systemImage: "folder")
-                }
-                .tag(1)
+            NavigationStack {
+                FileBrowserView()
+                    .navigationTitle("Files")
+                    .navigationBarTitleDisplayMode(.inline)
+            }
+            .tabItem {
+                Label("Files", systemImage: "folder")
+            }
+            .tag(1)
         }
     }
 }
