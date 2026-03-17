@@ -1,72 +1,50 @@
 import SwiftUI
 
-/// Template picker that overlays on top of everything.
-/// No sheet dismiss/appear — just fades in/out.
+/// Template picker presented as fullScreenCover from the file sheet.
+/// Sits on top of the sheet — no jarring dismiss/appear.
 struct TemplateCoverView: View {
     @EnvironmentObject var app: AppState
     @StateObject private var fileManager = SCFileManager()
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack {
-            // Dim background
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        app.showTemplates = false
-                    }
-                }
+        NavigationStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 24) {
+                    ForEach(templateCategories, id: \.0) { category, templates in
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(category)
+                                .font(.title2.weight(.bold))
+                                .padding(.horizontal, 16)
 
-            // Template content
-            NavigationStack {
-                templateContent
-                    .navigationTitle("Choose a Template")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    app.showTemplates = false
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)
+                            ], spacing: 12) {
+                                ForEach(templates) { template in
+                                    Button {
+                                        createFromTemplate(template)
+                                    } label: {
+                                        templateCard(template)
+                                    }
                                 }
                             }
-                        }
-                    }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 40)
-            .shadow(color: .black.opacity(0.4), radius: 20, y: 8)
-            .transition(.scale(scale: 0.95).combined(with: .opacity))
-        }
-        .animation(.easeOut(duration: 0.25), value: app.showTemplates)
-    }
-
-    var templateContent: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24) {
-                ForEach(templateCategories, id: \.0) { category, templates in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(category)
-                            .font(.title2.weight(.bold))
                             .padding(.horizontal, 16)
-
-                        LazyVGrid(columns: [
-                            GridItem(.flexible(), spacing: 12),
-                            GridItem(.flexible(), spacing: 12)
-                        ], spacing: 12) {
-                            ForEach(templates) { template in
-                                Button {
-                                    createFromTemplate(template)
-                                } label: {
-                                    templateCard(template)
-                                }
-                            }
                         }
-                        .padding(.horizontal, 16)
+                    }
+                }
+                .padding(.vertical, 16)
+            }
+            .navigationTitle("Choose a Template")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        app.showTemplates = false
+                        dismiss()
                     }
                 }
             }
-            .padding(.vertical, 16)
         }
     }
 
@@ -106,11 +84,8 @@ struct TemplateCoverView: View {
             app.currentFile = file.path
             app.hasUnsavedChanges = false
             app.isEditing = true
-
-            withAnimation(.easeOut(duration: 0.2)) {
-                app.showTemplates = false
-            }
-            // Navigate to editor after template closes
+            app.showTemplates = false
+            dismiss()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 app.showEditor = true
             }
@@ -118,7 +93,6 @@ struct TemplateCoverView: View {
     }
 }
 
-/// Categories for template picker (reuse from TemplatePickerView)
 private var templateCategories: [(String, [SCTemplate])] {
     var dict: [String: [SCTemplate]] = [:]
     for t in scTemplates {

@@ -15,13 +15,13 @@ struct ContentView: View {
         }
         // File browser as non-dismissible bottom sheet
         .sheet(isPresented: .constant(!app.showEditor)) {
-            FileBrowserSheet()
+            FileBrowserSheet(sheetDetent: $fileSheetDetent)
                 .environmentObject(app)
                 .presentationDetents([.medium, .large], selection: $fileSheetDetent)
                 .presentationDragIndicator(.hidden)
                 .interactiveDismissDisabled(true)
                 .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .presentationBackground(Color(.systemBackground).opacity(0.95))
+                .presentationBackground(.ultraThinMaterial)
         }
         .sheet(isPresented: $app.showPost) {
             PostOverlayView()
@@ -31,15 +31,6 @@ struct ContentView: View {
             SettingsView()
                 .environmentObject(app)
         }
-        // Template picker floats on top of everything
-        .overlay {
-            if app.showTemplates {
-                TemplateCoverView()
-                    .environmentObject(app)
-                    .transition(.opacity)
-                    .zIndex(100)
-            }
-        }
     }
 }
 
@@ -47,8 +38,9 @@ struct ContentView: View {
 
 struct FileBrowserSheet: View {
     @EnvironmentObject var app: AppState
+    @Binding var sheetDetent: PresentationDetent
     @StateObject private var fileManager = SCFileManager()
-    @State private var selectedTab = 0  // 0=Scripts, 1=Recordings, 2=Examples
+    @State private var selectedTab = 0
     @State private var searchText = ""
     @State private var isSearching = false
     @State private var showImporter = false
@@ -57,17 +49,20 @@ struct FileBrowserSheet: View {
     @State private var selectedRecording: SCFileManager.Recording? = nil
     @State private var fileToDelete: SCFileManager.SCFile? = nil
     @State private var recordingToDelete: SCFileManager.Recording? = nil
-    // Templates use app.showTemplates (global overlay)
+    @State private var sortBy = "Date"
+    @Namespace private var glassNS
 
     @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
     @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs = true
 
+    private var isExpanded: Bool { sheetDetent == .large }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar: ... menu and search (like Pages)
+            // Top bar: Liquid Glass pill toolbar
             topBar
 
-            // File list content
+            // File list
             Group {
                 switch selectedTab {
                 case 0: scriptsTab
@@ -78,7 +73,7 @@ struct FileBrowserSheet: View {
             }
             .frame(maxHeight: .infinity)
 
-            // Bottom tab bar: Scripts / Recordings / Examples
+            // Bottom tab bar in glass pill
             bottomTabBar
         }
         .onAppear {
@@ -98,23 +93,25 @@ struct FileBrowserSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        // Templates handled by app.showTemplates → TemplateCoverView overlay in ContentView
+        // Template picker as fullScreenCover ON the sheet (so it's above the sheet)
+        .fullScreenCover(isPresented: $app.showTemplates) {
+            TemplateCoverView()
+                .environmentObject(app)
+        }
         .sheet(item: $selectedRecording) { rec in
             RecordingPlayerView(recording: rec)
                 .presentationDetents([.medium])
         }
     }
 
-    @State private var sortBy = "Date"
-
-    // MARK: - Top Bar (Liquid Glass pill toolbar)
+    // MARK: - Top Bar (all icons on same line)
 
     var topBar: some View {
         HStack(spacing: 10) {
             Spacer()
 
             if isSearching {
-                // Expanded search bar
+                // Expanded search
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
@@ -130,24 +127,26 @@ struct FileBrowserSheet: View {
                 }
                 .padding(10)
                 .glassEffect(.regular, in: .capsule)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(.opacity)
             } else {
-                // Pill toolbar: [+] [...] grouped, then [search] separate
-                GlassEffectContainer {
+                // Pill toolbar: [+] [...] [🔍] all on one line
+                GlassEffectContainer(spacing: 12) {
                     HStack(spacing: 0) {
-                        // + button (new file = Start Coding)
-                        Button {
-                            let formatter = DateFormatter()
-                            formatter.dateFormat = "MMdd-HHmm"
-                            let name = "sketch-\(formatter.string(from: Date())).scd"
-                            if let file = fileManager.createFile(name: name) {
-                                openFile(file)
-                                app.isEditing = true
+                        // + only when expanded to full
+                        if isExpanded {
+                            Button {
+                                let formatter = DateFormatter()
+                                formatter.dateFormat = "MMdd-HHmm"
+                                let name = "sketch-\(formatter.string(from: Date())).scd"
+                                if let file = fileManager.createFile(name: name) {
+                                    openFile(file)
+                                    app.isEditing = true
+                                }
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.body.weight(.medium))
+                                    .frame(width: 40, height: 36)
                             }
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.body.weight(.medium))
-                                .frame(width: 40, height: 36)
                         }
 
                         // ... menu
@@ -195,24 +194,28 @@ struct FileBrowserSheet: View {
         .padding(.horizontal, 16)
         .padding(.top, 14)
         .padding(.bottom, 6)
+        .animation(.easeInOut(duration: 0.2), value: isExpanded)
     }
 
-    // MARK: - Bottom Tab Bar
+    // MARK: - Bottom Tab Bar (glass pill)
 
     var bottomTabBar: some View {
-        HStack(spacing: 0) {
-            tabButton("Scripts", icon: "doc.text", tag: 0)
-            tabButton("Recordings", icon: "waveform", tag: 1)
-            tabButton("Examples", icon: "book.closed", tag: 2)
+        GlassEffectContainer(spacing: 0) {
+            HStack(spacing: 0) {
+                tabButton("Scripts", icon: "doc.text", tag: 0)
+                tabButton("Recordings", icon: "waveform", tag: 1)
+                tabButton("Examples", icon: "book.closed", tag: 2)
+            }
+            .glassEffect(.regular, in: .capsule)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .padding(.bottom, 16)
+        .padding(.bottom, 8)
     }
 
     private func tabButton(_ title: String, icon: String, tag: Int) -> some View {
         Button {
-            selectedTab = tag
+            withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tag }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
@@ -222,13 +225,7 @@ struct FileBrowserSheet: View {
             }
             .foregroundColor(selectedTab == tag ? .accentColor : .secondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(
-                selectedTab == tag
-                    ? Color.accentColor.opacity(0.1)
-                    : Color.clear
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.vertical, 8)
         }
     }
 
@@ -271,7 +268,6 @@ struct FileBrowserSheet: View {
 
     var recordingsTab: some View {
         List {
-            // Show recording indicator if currently recording
             if app.isRecording {
                 HStack {
                     Circle().fill(Color.red).frame(width: 8, height: 8)
@@ -291,9 +287,7 @@ struct FileBrowserSheet: View {
                             .clipShape(Capsule())
                     }
                 }
-                .padding(.vertical, 4)
             }
-
             ForEach(filteredRecordings) { rec in
                 Button { selectedRecording = rec } label: {
                     HStack {
