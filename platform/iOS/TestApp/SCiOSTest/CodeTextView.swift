@@ -239,6 +239,13 @@ class SCCodeTextView: UITextView {
         case .began:
             longPressActive = true
 
+            // Ensure the text view is first responder so selection highlights render.
+            // In read mode (isEditable=false), UITextView won't become first responder
+            // from a tap alone, so the first long-press would appear to do nothing.
+            if !isFirstResponder {
+                becomeFirstResponder()
+            }
+
             // Save content offset so UITextView's selectedRange assignment can't scroll the view
             let savedOffset = contentOffset
 
