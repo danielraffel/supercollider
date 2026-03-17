@@ -75,11 +75,20 @@ struct EditorView: View {
         }
         .background(Color.black)
         .overlay(alignment: .bottom) {
-            toastView
+            if app.isScrubbing || app.scrubRange != nil {
+                scrubBar
+            } else {
+                toastView
+            }
         }
         .overlay {
             if !app.serverRunning || !app.sclangReady {
                 bootOverlay
+            }
+        }
+        .overlay {
+            if app.isScrubbing {
+                scrubPopup
             }
         }
         // Keyboard shortcut: Cmd+E toggles Edit mode
@@ -145,6 +154,93 @@ struct EditorView: View {
             .clipShape(Capsule())
             .padding(.bottom, 12)
             .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    // MARK: - Value Scrub UI
+
+    var scrubPopup: some View {
+        VStack(spacing: 6) {
+            // Current value
+            Text(formattedScrubValue)
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .foregroundColor(.orange)
+
+            // Original value
+            Text("was \(app.scrubOriginalValue)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            // Speed hint
+            HStack(spacing: 16) {
+                Text("1-finger: fine")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.4))
+                Text("2-finger: coarse")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.4))
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.systemGray5))
+                .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
+        )
+        .transition(.scale.combined(with: .opacity))
+    }
+
+    var scrubBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                // Apply: re-evaluate the enclosing block
+                app.isScrubbing = false
+                app.evaluateSelection()
+                app.scrubRange = nil
+                app.showToast("Applied", isError: false)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .font(.caption)
+                    Text("Apply")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.orange)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            Button {
+                // Revert to original value
+                if let range = app.scrubRange {
+                    let nsText = app.codeText as NSString
+                    app.codeText = nsText.replacingCharacters(in: range, with: app.scrubOriginalValue)
+                }
+                app.isScrubbing = false
+                app.scrubRange = nil
+            } label: {
+                Text("Revert")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(.systemBackground).opacity(0.95))
+    }
+
+    private var formattedScrubValue: String {
+        let original = Double(app.scrubOriginalValue) ?? 0
+        if original == floor(original) && abs(original) > 1 {
+            return "\(Int(app.scrubValue))"
+        } else {
+            return String(format: "%.3g", app.scrubValue)
         }
     }
 
@@ -296,7 +392,19 @@ struct EditorView: View {
                     )
             }
 
-            if !app.sclangReady {
+            if app.isScrubbing {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.caption2)
+                    Text("Scrubbing")
+                        .font(.caption2.weight(.semibold))
+                }
+                .foregroundColor(.orange)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.orange.opacity(0.2))
+                .clipShape(Capsule())
+            } else if !app.sclangReady {
                 ProgressView()
                     .tint(.orange)
                     .scaleEffect(0.8)
