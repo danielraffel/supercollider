@@ -271,8 +271,10 @@ struct FileBrowserView: View {
 
     private func openFile(_ file: SCFileManager.SCFile) {
         if let content = fileManager.loadFile(file) {
+            app.lastSavedText = content
             app.codeText = content
             app.currentFile = file.path
+            app.hasUnsavedChanges = false
             app.isEditing = alwaysEditMode
             app.autosave()
             // Navigate to editor (push on nav stack)

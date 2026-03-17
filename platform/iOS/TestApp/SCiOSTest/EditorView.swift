@@ -53,17 +53,12 @@ struct EditorView: View {
     }
 
     private func saveCurrentFile() {
-        guard let path = app.currentFile else {
+        guard app.currentFile != nil else {
             app.showToast("No file to save", isError: true)
             return
         }
-        do {
-            try app.codeText.write(toFile: path, atomically: true, encoding: .utf8)
-            app.autosave()
-            app.showToast("Saved", isError: false)
-        } catch {
-            app.showToast("Save failed", isError: true)
-        }
+        app.saveToFile()
+        app.showToast("Saved", isError: false)
     }
 
     var currentFileName: String {
@@ -131,11 +126,18 @@ struct EditorView: View {
 
             Spacer()
 
-            // Filename
-            Text(currentFileName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
-                .lineLimit(1)
+            // Filename + unsaved indicator
+            HStack(spacing: 4) {
+                if app.hasUnsavedChanges {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 6, height: 6)
+                }
+                Text(currentFileName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+            }
 
             Spacer()
 

@@ -24,12 +24,18 @@ class AppState: ObservableObject {
     @Published var toastMessage: String? = nil
     @Published var toastIsError: Bool = false
     @Published var currentFile: String? = nil
-    @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
+    @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n" {
+        didSet { scheduleFileAutosave() }
+    }
     /// Last known text selection (saved before text view loses focus)
     @Published var lastSelection: String = ""
+    /// Tracks whether code has been modified since last save
+    @Published var hasUnsavedChanges: Bool = false
 
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?
+    private var fileAutosaveTimer: Timer?
+    var lastSavedText: String = ""
     let sclang = SclangEngine()
 
     private let autosaveKey = "sc_autosave_code"
@@ -372,6 +378,29 @@ class AppState: ObservableObject {
     func autosave() {
         UserDefaults.standard.set(codeText, forKey: autosaveKey)
         UserDefaults.standard.set(currentFile, forKey: lastFileKey)
+    }
+
+    /// Debounced auto-save to file (3 seconds after last edit)
+    private func scheduleFileAutosave() {
+        hasUnsavedChanges = (codeText != lastSavedText)
+        fileAutosaveTimer?.invalidate()
+        fileAutosaveTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            self?.saveToFile()
+        }
+    }
+
+    func saveToFile() {
+        guard let path = currentFile else { return }
+        // Don't save to bundled examples
+        if path.contains(".app/") { return }
+        do {
+            try codeText.write(toFile: path, atomically: true, encoding: .utf8)
+            lastSavedText = codeText
+            hasUnsavedChanges = false
+            autosave()
+        } catch {
+            // Silent fail — UserDefaults autosave is the backup
+        }
     }
 
     // MARK: - Post Window
