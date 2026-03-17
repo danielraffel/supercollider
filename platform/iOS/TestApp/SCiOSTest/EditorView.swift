@@ -574,10 +574,6 @@ struct EditorView: View {
                 Button(action: {
                     app.autosave()
                     app.showEditor = false
-                    // Show sheet again after nav pop
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        app.hideSheet = false
-                    }
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")

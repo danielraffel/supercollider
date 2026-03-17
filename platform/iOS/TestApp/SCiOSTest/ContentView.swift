@@ -12,10 +12,10 @@ struct ContentView: View {
                         .toolbar(.hidden, for: .navigationBar)
                 }
         }
-        // File browser sheet — shown when not in editor
+        // File browser sheet — tied to editor state so it auto-hides/shows
         .sheet(isPresented: Binding(
-            get: { !app.hideSheet },
-            set: { if !$0 { app.hideSheet = true } }
+            get: { !app.showEditor },
+            set: { _ in }  // Sheet is controlled by showEditor, not user dismissal
         )) {
             FileBrowserSheet(sheetDetent: $fileSheetDetent)
                 .environmentObject(app)
@@ -29,7 +29,6 @@ struct ContentView: View {
             PostOverlayView()
                 .environmentObject(app)
         }
-        .onChange(of: app.showEditor) { _, _ in }
     }
 }
 
@@ -491,11 +490,7 @@ struct FileBrowserSheet: View {
             app.hasUnsavedChanges = false
             app.isEditing = alwaysEditMode
             app.autosave()
-            // Hide sheet first, then navigate to avoid visible overlap
-            app.hideSheet = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                app.showEditor = true
-            }
+            app.showEditor = true
             if autoLoadSynthDefs {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     app.autoLoadSynthDefs()

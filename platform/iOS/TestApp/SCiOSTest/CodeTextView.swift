@@ -72,7 +72,7 @@ class SCCodeTextView: UITextView {
         longPress.minimumPressDuration = 0.5
         longPress.delegate = self
         longPress.delaysTouchesBegan = true
-        longPress.cancelsTouchesInView = true
+        longPress.cancelsTouchesInView = false
         customLongPress = longPress
         addGestureRecognizer(longPress)
 
@@ -239,9 +239,6 @@ class SCCodeTextView: UITextView {
         case .began:
             longPressActive = true
 
-            // Cancel UITextView's built-in long-press gestures to prevent conflicts
-            cancelBuiltInLongPress()
-
             // Save content offset so UITextView's selectedRange assignment can't scroll the view
             let savedOffset = contentOffset
 
@@ -293,9 +290,6 @@ class SCCodeTextView: UITextView {
             longPressAnchorLineRange = nil
             lastGestureSelection = nil
 
-            // Cancel UITextView's built-in long-press gestures to prevent post-gesture interference
-            cancelBuiltInLongPress()
-
             // In read mode (isEditable=false), UITextView clears selection.
             // Re-assert it with double-async to fire after UITextView's cleanup.
             if readModeActive && finalSelection.length > 0 {
@@ -332,17 +326,6 @@ class SCCodeTextView: UITextView {
 
         default:
             break
-        }
-    }
-
-    /// Cancel UITextView's built-in long-press gestures by toggling isEnabled.
-    /// This resets them to .possible state so they don't interfere with our custom gesture.
-    private func cancelBuiltInLongPress() {
-        for gesture in gestureRecognizers ?? [] {
-            if gesture is UILongPressGestureRecognizer && gesture !== customLongPress {
-                gesture.isEnabled = false
-                gesture.isEnabled = true
-            }
         }
     }
 
@@ -655,9 +638,10 @@ extension SCCodeTextView: UIGestureRecognizerDelegate {
     }
 
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Don't start our custom long-press during scrubbing
-        if gestureRecognizer === customLongPress && scrubActive {
-            return false
+        // Our custom long-press only fires in read mode and not during scrubbing.
+        // In edit mode, UITextView's built-in long-press handles cursor/selection.
+        if gestureRecognizer === customLongPress {
+            return readModeActive && !scrubActive
         }
         return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
