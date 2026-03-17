@@ -35,6 +35,40 @@ struct FileBrowserView: View {
                 }
             }
 
+            if !fileManager.recordings.isEmpty {
+                Section("Recordings") {
+                    ForEach(fileManager.recordings) { rec in
+                        HStack {
+                            Image(systemName: "waveform")
+                                .foregroundColor(.red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rec.name)
+                                    .lineLimit(1)
+                                Text(rec.size)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                let _ = fileManager.deleteRecording(rec)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            ShareLink(item: rec.url) {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
+                            .tint(.blue)
+                        }
+                    }
+
+                    Text("Recordings save to Documents/Recordings/\nVisible in Files app > On My iPhone > SCiOSTest")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
             if !fileManager.files.filter({ $0.isExample }).isEmpty {
                 Section("Examples") {
                     ForEach(fileManager.files.filter { $0.isExample }) { file in
@@ -54,7 +88,17 @@ struct FileBrowserView: View {
                 }
             }
         }
+        .onAppear {
+            fileManager.refreshRecordings()
+        }
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    app.showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     showImporter = true
@@ -84,14 +128,19 @@ struct FileBrowserView: View {
         }
     }
 
+    @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
+    @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs = true
+
     private func openFile(_ file: SCFileManager.SCFile) {
         if let content = fileManager.loadFile(file) {
             app.codeText = content
             app.currentFile = file.path
+            app.isEditing = alwaysEditMode
             app.autosave()
-            // Auto-evaluate SynthDef blocks so patterns work immediately
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                app.autoLoadSynthDefs()
+            if autoLoadSynthDefs {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    app.autoLoadSynthDefs()
+                }
             }
         }
     }

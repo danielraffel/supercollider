@@ -12,6 +12,9 @@ class AppState: ObservableObject {
     @Published var numUGens: Int = 0
     @Published var isPlaying: Bool = false
     @Published var isRecording: Bool = false
+    @Published var isEditing: Bool = false
+    @Published var showPost: Bool = false
+    @Published var showSettings: Bool = false
     @Published var postOutput = ""
     @Published var currentFile: String? = nil
     @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
@@ -270,15 +273,35 @@ class AppState: ObservableObject {
             isRecording = false
             appendPost("⏺ Recording saved\n")
         } else {
+            // Build recording filename: PatchName_YYMMDD_HHMMSS.wav
+            let patchName: String
+            if let file = currentFile {
+                patchName = (file as NSString).lastPathComponent
+                    .replacingOccurrences(of: ".scd", with: "")
+                    .replacingOccurrences(of: ".sc", with: "")
+            } else {
+                patchName = "Untitled"
+            }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyMMdd_HHmmss"
+            let timestamp = formatter.string(from: Date())
+            let fileName = "\(patchName)_\(timestamp).wav"
+
+            let docs = Foundation.FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let recDir = docs.appendingPathComponent("Recordings")
+            try? Foundation.FileManager.default.createDirectory(at: recDir, withIntermediateDirectories: true)
+            let recPath = recDir.appendingPathComponent(fileName).path
+
+            let escaped = recPath.replacingOccurrences(of: "'", with: "\\'")
             let _ = sclang.interpret("""
                 var s = Server.internal;
                 s.recorder.recBufSize = 65536;
                 s.recorder.recHeaderFormat = "wav";
                 s.recorder.recSampleFormat = "float";
-                s.record;
+                s.record(path: '\(escaped)');
             """)
             isRecording = true
-            appendPost("⏺ Recording...\n")
+            appendPost("⏺ Recording → \(fileName)\n")
         }
     }
 

@@ -3,6 +3,7 @@ import Foundation
 /// Manages SC script files within the iOS sandbox
 class SCFileManager: ObservableObject {
     @Published var files: [SCFile] = []
+    @Published var recordings: [Recording] = []
     @Published var currentFile: SCFile?
 
     struct SCFile: Identifiable, Hashable {
@@ -20,15 +21,26 @@ class SCFileManager: ObservableObject {
         }
     }
 
+    struct Recording: Identifiable {
+        let id = UUID()
+        let name: String
+        let url: URL
+        let size: String
+        let date: Date
+    }
+
     let documentsDir: URL
     let scriptsDir: URL
+    let recordingsDir: URL
 
     init() {
         documentsDir = Foundation.FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         scriptsDir = documentsDir.appendingPathComponent("Scripts")
+        recordingsDir = documentsDir.appendingPathComponent("Recordings")
 
-        // Create Scripts directory if needed
+        // Create directories if needed
         try? Foundation.FileManager.default.createDirectory(at: scriptsDir, withIntermediateDirectories: true)
+        try? Foundation.FileManager.default.createDirectory(at: recordingsDir, withIntermediateDirectories: true)
 
         // Create default file if none exist
         let defaultFile = scriptsDir.appendingPathComponent("scratch.scd")
@@ -55,6 +67,43 @@ class SCFileManager: ObservableObject {
         }
 
         refreshFileList()
+        refreshRecordings()
+    }
+
+    func refreshRecordings() {
+        var result: [Recording] = []
+        let fm = Foundation.FileManager.default
+
+        // Check both Recordings/ and Documents root for audio files
+        let searchDirs = [recordingsDir, documentsDir]
+        let audioExtensions: Set<String> = ["wav", "aiff", "aif", "flac", "ogg"]
+
+        for dir in searchDirs {
+            guard let contents = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]) else { continue }
+            for url in contents {
+                guard audioExtensions.contains(url.pathExtension.lowercased()) else { continue }
+                let attrs = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+                let bytes = attrs?.fileSize ?? 0
+                let sizeStr: String
+                if bytes < 1024 { sizeStr = "\(bytes) B" }
+                else if bytes < 1024 * 1024 { sizeStr = "\(bytes / 1024) KB" }
+                else { sizeStr = String(format: "%.1f MB", Double(bytes) / (1024 * 1024)) }
+                let date = attrs?.contentModificationDate ?? Date.distantPast
+                result.append(Recording(name: url.lastPathComponent, url: url, size: sizeStr, date: date))
+            }
+        }
+
+        recordings = result.sorted { $0.date > $1.date }
+    }
+
+    func deleteRecording(_ recording: Recording) -> Bool {
+        do {
+            try Foundation.FileManager.default.removeItem(at: recording.url)
+            refreshRecordings()
+            return true
+        } catch {
+            return false
+        }
     }
 
     func refreshFileList() {

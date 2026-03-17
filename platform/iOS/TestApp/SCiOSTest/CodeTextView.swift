@@ -450,6 +450,7 @@ struct CodeTextView: UIViewRepresentable {
     @Binding var text: String
     /// Mirrors AppState.lastSelection so updateUIView can detect when it is cleared after evaluation
     var lastSelection: String = ""
+    var isEditable: Bool = true
     var onEvaluate: (() -> Void)?
     var onEvaluateCode: ((String) -> Void)?
     var onStop: (() -> Void)?
@@ -514,6 +515,9 @@ struct CodeTextView: UIViewRepresentable {
         context.coordinator.stopAll = onStop
         context.coordinator.onEvaluate = onEvaluate
         context.coordinator.onSelectionChanged = onSelectionChanged
+
+        // Read/Edit mode: control whether text is editable
+        textView.isEditable = isEditable
 
         // When AppState.lastSelection is cleared (after evaluation), reset the dedup
         // tracker so the user can re-select the same text and have it register again.

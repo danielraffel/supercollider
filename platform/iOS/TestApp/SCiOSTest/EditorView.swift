@@ -2,14 +2,17 @@ import SwiftUI
 
 struct EditorView: View {
     @EnvironmentObject var app: AppState
+    @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
+            navBar
+            transportBar
             Divider()
             CodeTextView(
                 text: $app.codeText,
                 lastSelection: app.lastSelection,
+                isEditable: app.isEditing,
                 onEvaluate: { app.evaluateSelection() },
                 onEvaluateCode: { code in app.evaluateCode(code) },
                 onStop: { app.stopAll() },
@@ -18,10 +21,77 @@ struct EditorView: View {
             .layoutPriority(1)
         }
         .background(Color.black)
+        .onAppear {
+            if alwaysEditMode { app.isEditing = true }
+        }
     }
 
-    var toolbar: some View {
-        HStack(spacing: 12) {
+    // MARK: - Nav Bar (Read/Edit toggle)
+
+    var navBar: some View {
+        HStack(spacing: 8) {
+            if app.isEditing {
+                // Edit mode: Done button
+                Button(action: {
+                    app.isEditing = false
+                    app.autosave()
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }) {
+                    Text("Done")
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor)
+                        .clipShape(Capsule())
+                }
+            }
+
+            Spacer()
+
+            // Filename
+            if let file = app.currentFile {
+                Text((file as NSString).lastPathComponent)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            if app.isEditing {
+                // Undo/Redo (placeholders — UITextView handles internally)
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .foregroundColor(.accentColor.opacity(0.5))
+                    Image(systemName: "arrow.uturn.forward")
+                        .foregroundColor(.accentColor.opacity(0.3))
+                }
+            } else {
+                // Read mode: Edit button
+                Button(action: { app.isEditing = true }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.caption)
+                        Text("Edit")
+                            .font(.subheadline)
+                    }
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(.systemGray6))
+                    .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Transport Toolbar
+
+    var transportBar: some View {
+        HStack(spacing: 8) {
             // Play button
             Button(action: { app.evaluateSelection() }) {
                 Image(systemName: "play.fill")
@@ -56,6 +126,19 @@ struct EditorView: View {
                     .clipShape(Circle())
             }
             .disabled(!app.sclangReady || !app.serverRunning)
+
+            // Post Window button
+            Button(action: { app.showPost = true }) {
+                Image(systemName: "terminal")
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(width: 36, height: 36)
+                    .background(Color.white.opacity(0.1))
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+            }
 
             if !app.sclangReady {
                 Text("compiling...")

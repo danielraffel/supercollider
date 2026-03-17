@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum IPadTab: Hashable {
-    case editor, post, server, files
+    case editor, files
 }
 
 struct ContentView: View {
@@ -26,6 +26,16 @@ struct ContentView: View {
                 iPhoneLayout
             }
         }
+        // Post Window — global overlay (session-scoped)
+        .sheet(isPresented: $app.showPost) {
+            PostOverlayView()
+                .environmentObject(app)
+        }
+        // Settings — global sheet
+        .sheet(isPresented: $app.showSettings) {
+            SettingsView()
+                .environmentObject(app)
+        }
     }
 
     // MARK: - iPad Layout
@@ -35,10 +45,6 @@ struct ContentView: View {
             List(selection: $selectedIPadTab) {
                 Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")
                     .tag(IPadTab.editor)
-                Label("Post", systemImage: "text.alignleft")
-                    .tag(IPadTab.post)
-                Label("Server", systemImage: "server.rack")
-                    .tag(IPadTab.server)
                 Label("Files", systemImage: "folder")
                     .tag(IPadTab.files)
             }
@@ -47,10 +53,6 @@ struct ContentView: View {
             switch selectedIPadTab {
             case .editor, .none:
                 EditorView()
-            case .post:
-                PostView()
-            case .server:
-                ServerView()
             case .files:
                 FileBrowserView()
             }
@@ -67,23 +69,11 @@ struct ContentView: View {
                 }
                 .tag(0)
 
-            PostView()
-                .tabItem {
-                    Label("Post", systemImage: "text.alignleft")
-                }
-                .tag(1)
-
-            ServerView()
-                .tabItem {
-                    Label("Server", systemImage: "server.rack")
-                }
-                .tag(2)
-
             FileBrowserView()
                 .tabItem {
                     Label("Files", systemImage: "folder")
                 }
-                .tag(3)
+                .tag(1)
         }
     }
 }
