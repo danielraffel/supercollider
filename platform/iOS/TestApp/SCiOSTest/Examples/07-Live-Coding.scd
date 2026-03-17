@@ -45,4 +45,5 @@ Ndef(\a).stop;
 Ndef(\b).stop;
 
 // Or stop everything
-CmdPeriod.run;
+// Stop all sound
+( CmdPeriod.run; )

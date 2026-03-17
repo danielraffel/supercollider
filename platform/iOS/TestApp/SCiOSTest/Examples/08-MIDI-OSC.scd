@@ -68,4 +68,5 @@ OSCdef(\note, { |msg|
 // Free OSC responders
 OSCdef.freeAll;
 
-CmdPeriod.run;
+// Stop all sound
+( CmdPeriod.run; )

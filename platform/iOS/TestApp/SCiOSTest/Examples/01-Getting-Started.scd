@@ -15,7 +15,8 @@
 { SinOsc.ar(440, 0, 0.3) }.play;
 
 // Stop it:
-CmdPeriod.run;
+// Stop all sound
+( CmdPeriod.run; )
 
 // --- 2. Changing Pitch ---
 { SinOsc.ar(880, 0, 0.3) }.play;
@@ -70,7 +71,8 @@ Pbind(
 )
 
 // Stop:
-CmdPeriod.run;
+// Stop all sound
+( CmdPeriod.run; )
 
 // --- 8. Reverb Effect ---
 (

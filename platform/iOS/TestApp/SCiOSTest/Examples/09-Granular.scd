@@ -55,4 +55,5 @@
 }.play;
 )
 
-CmdPeriod.run;
+// Stop all sound
+( CmdPeriod.run; )

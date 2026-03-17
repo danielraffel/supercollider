@@ -81,4 +81,6 @@ Ppar([
 ]).play;
 )
 
-CmdPeriod.run;
+// Stop all
+// Stop all sound
+( CmdPeriod.run; )

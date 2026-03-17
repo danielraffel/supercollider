@@ -89,8 +89,8 @@ class SCCodeTextView: UITextView {
             return
         }
 
-        // Not a number — enter Edit mode
-        scDoubleTapCallback?()
+        // Not a number — do nothing in Read mode
+        // (Edit mode is entered via the Edit button only, to prevent accidental entry)
     }
 
     // MARK: - Value Scrub

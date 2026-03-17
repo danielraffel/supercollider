@@ -57,4 +57,5 @@ y = Synth(\loopPlay, [\buf, ~buf]);
 // y.free;
 // ~buf.free;
 
-CmdPeriod.run;
+// Stop all sound
+( CmdPeriod.run; )
