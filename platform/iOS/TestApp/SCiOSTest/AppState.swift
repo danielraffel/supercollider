@@ -211,30 +211,30 @@ class AppState: ObservableObject {
     }
 
     func evaluateSelection() {
-        // Try to snapshot the current selection from the text view
-        // (this works even if the text view is about to lose focus)
+        // 1. Try live snapshot first (text view still has focus)
         if let snapshot = scSnapshotSelection?(), !snapshot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             evaluate(snapshot)
-            lastSelection = ""
             return
         }
-        // Fall back to lastSelection (saved on selection change)
+        // 2. Fall back to lastSelection (persisted from selection change callback)
+        //    This is the key path when Play button steals focus before we can snapshot
         let sel = lastSelection.trimmingCharacters(in: .whitespacesAndNewlines)
         if !sel.isEmpty {
             evaluate(lastSelection)
-            lastSelection = ""
-        } else {
-            // No selection — check if file is safe to evaluate as a whole
-            let trimmed = codeText.trimmingCharacters(in: .whitespacesAndNewlines)
-            let hasMultipleBlocks = trimmed.components(separatedBy: "\n").filter {
-                $0.trimmingCharacters(in: .whitespaces) == "("
-            }.count > 1
+            // Don't clear lastSelection — keep it so user can tap Play again
+            // It only gets replaced when user makes a new selection
+            return
+        }
+        // 3. No selection at all — evaluate whole file if safe
+        let trimmed = codeText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasMultipleBlocks = trimmed.components(separatedBy: "\n").filter {
+            $0.trimmingCharacters(in: .whitespaces) == "("
+        }.count > 1
 
-            if hasMultipleBlocks {
-                appendPost("⚠ Multi-block file — select a block first (long-press)\n")
-            } else {
-                evaluate(codeText)
-            }
+        if hasMultipleBlocks {
+            showToast("Select a block first (long-press)", isError: true)
+        } else {
+            evaluate(codeText)
         }
     }
 
