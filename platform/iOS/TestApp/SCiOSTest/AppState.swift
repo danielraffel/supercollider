@@ -32,6 +32,13 @@ class AppState: ObservableObject {
     /// Tracks whether code has been modified since last save
     @Published var hasUnsavedChanges: Bool = false
 
+    // Value Scrub state
+    @Published var isScrubbing: Bool = false
+    @Published var scrubValue: Double = 0
+    @Published var scrubOriginalValue: String = ""
+    @Published var scrubRange: NSRange?
+    @Published var scrubPopupRect: CGRect = .zero
+
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?
     private var fileAutosaveTimer: Timer?

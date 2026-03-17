@@ -1,5 +1,18 @@
 import SwiftUI
 
+/// Re-enables interactive back swipe when nav bar is hidden
+struct EnableSwipeBack: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        let vc = UIViewController()
+        DispatchQueue.main.async {
+            vc.navigationController?.interactivePopGestureRecognizer?.isEnabled = true
+            vc.navigationController?.interactivePopGestureRecognizer?.delegate = nil
+        }
+        return vc
+    }
+    func updateUIViewController(_ vc: UIViewController, context: Context) {}
+}
+
 struct EditorView: View {
     @EnvironmentObject var app: AppState
     @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
@@ -17,7 +30,46 @@ struct EditorView: View {
                 onEvaluateCode: { code in app.evaluateCode(code) },
                 onStop: { app.stopAll() },
                 onSelectionChanged: { selected in app.lastSelection = selected },
-                onDoubleTap: { app.isEditing = true }
+                onDoubleTap: { app.isEditing = true },
+                onScrubStart: { range, value, rect in
+                    app.scrubRange = range
+                    app.scrubOriginalValue = value
+                    app.scrubValue = Double(value) ?? 0
+                    app.scrubPopupRect = rect
+                    app.isScrubbing = true
+                },
+                onScrubUpdate: { delta in
+                    guard let original = Double(app.scrubOriginalValue) else { return }
+                    // Determine step size based on value type
+                    let step: Double
+                    if original == floor(original) && original > 1 {
+                        step = 1.0  // Integer: 1 per point
+                    } else if original >= 0 && original <= 1 {
+                        step = 0.001  // 0-1 range: fine
+                    } else {
+                        step = 0.1  // Float: medium
+                    }
+                    let newValue = original + (delta * step)
+                    app.scrubValue = newValue
+
+                    // Update the code text with the new value
+                    if let range = app.scrubRange {
+                        let nsText = app.codeText as NSString
+                        let formatted: String
+                        if original == floor(original) && original > 1 {
+                            formatted = "\(Int(newValue))"
+                        } else {
+                            formatted = String(format: "%.3g", newValue)
+                        }
+                        let newText = nsText.replacingCharacters(in: range, with: formatted)
+                        // Update range for new string length
+                        app.scrubRange = NSRange(location: range.location, length: formatted.count)
+                        app.codeText = newText
+                    }
+                },
+                onScrubEnd: {
+                    app.isScrubbing = false
+                }
             )
             .layoutPriority(1)
         }
@@ -52,6 +104,7 @@ struct EditorView: View {
             }
             .hidden()
         )
+        .background(EnableSwipeBack())
         .onAppear {
             if alwaysEditMode { app.isEditing = true }
         }

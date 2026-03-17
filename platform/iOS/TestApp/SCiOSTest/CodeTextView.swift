@@ -10,6 +10,10 @@ var scGetSelectedText: (() -> String)?
 var scSnapshotSelection: (() -> String)?
 /// Closure called on double-tap (to enter Edit mode from Read mode)
 var scDoubleTapCallback: (() -> Void)?
+/// Value scrub callbacks
+var scValueScrubStart: ((NSRange, String, CGRect) -> Void)?  // (range, originalValue, rect)
+var scValueScrubUpdate: ((Double) -> Void)?  // delta from drag
+var scValueScrubEnd: (() -> Void)?
 
 /// Custom UITextView subclass with SC-specific menu actions and long-press line selection
 class SCCodeTextView: UITextView {
@@ -18,6 +22,12 @@ class SCCodeTextView: UITextView {
     private var longPressActive = false
     // The character range of the anchor line when long-press started
     private var longPressAnchorLineRange: NSRange?
+
+    // Value scrub state
+    private var scrubActive = false
+    private var scrubRange: NSRange?
+    private var scrubStartY: CGFloat = 0
+    private var scrubOriginalValue: String = ""
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
@@ -62,6 +72,86 @@ class SCCodeTextView: UITextView {
         }
     }
 
+    // MARK: - Value Scrub
+
+    /// Find a numeric literal at the given character index
+    func findNumberAt(_ charIndex: Int) -> NSRange? {
+        let nsText = text as NSString
+        guard charIndex >= 0, charIndex < nsText.length else { return nil }
+
+        // Check if char at index is part of a number
+        let ch = nsText.character(at: charIndex)
+        let isDigitOrDot = (ch >= 0x30 && ch <= 0x39) || ch == 0x2E  // 0-9 or .
+        guard isDigitOrDot else { return nil }
+
+        // Expand left
+        var start = charIndex
+        while start > 0 {
+            let prev = nsText.character(at: start - 1)
+            let isNum = (prev >= 0x30 && prev <= 0x39) || prev == 0x2E || prev == 0x2D  // 0-9, ., -
+            if !isNum { break }
+            start -= 1
+        }
+
+        // Expand right
+        var end = charIndex + 1
+        while end < nsText.length {
+            let next = nsText.character(at: end)
+            let isNum = (next >= 0x30 && next <= 0x39) || next == 0x2E
+            if !isNum { break }
+            end += 1
+        }
+
+        let range = NSRange(location: start, length: end - start)
+        let str = nsText.substring(with: range)
+
+        // Validate it's actually a number
+        guard Double(str) != nil else { return nil }
+        return range
+    }
+
+    /// Get the bounding rect for a character range
+    func rectForRange(_ range: NSRange) -> CGRect {
+        guard let start = position(from: beginningOfDocument, offset: range.location),
+              let end = position(from: start, offset: range.length),
+              let textRange = self.textRange(from: start, to: end) else {
+            return .zero
+        }
+        return firstRect(for: textRange)
+    }
+
+    /// Try to start a value scrub at the given point (read mode only)
+    func tryStartScrub(at point: CGPoint) -> Bool {
+        guard !isEditable else { return false }
+
+        let charIndex = layoutManager.characterIndex(
+            for: point, in: textContainer,
+            fractionOfDistanceBetweenInsertionPoints: nil
+        )
+
+        guard let numRange = findNumberAt(charIndex) else { return false }
+
+        let nsText = text as NSString
+        let valueStr = nsText.substring(with: numRange)
+        let rect = rectForRange(numRange)
+
+        // Convert to screen coordinates
+        let screenRect = convert(rect, to: window)
+
+        scrubActive = true
+        scrubRange = numRange
+        scrubStartY = point.y
+        scrubOriginalValue = valueStr
+
+        // Highlight the number
+        let highlight = NSMutableAttributedString(attributedString: attributedText)
+        highlight.addAttribute(.backgroundColor, value: UIColor.orange.withAlphaComponent(0.3), range: numRange)
+        attributedText = highlight
+
+        scValueScrubStart?(numRange, valueStr, screenRect)
+        return true
+    }
+
     @objc private func handleTwoFingerTap(_ gesture: UITapGestureRecognizer) {
         if gesture.state == .ended {
             // Use AppState.lastSelection (persists after focus loss) rather than
@@ -97,6 +187,18 @@ class SCCodeTextView: UITextView {
 
         switch gesture.state {
         case .began:
+            // In read mode, try value scrub on numbers first
+            if !isEditable {
+                let touchPosition = closestPosition(to: location) ?? beginningOfDocument
+                let charIndex = offset(from: beginningOfDocument, to: touchPosition)
+                if findNumberAt(charIndex) != nil {
+                    if tryStartScrub(at: location) {
+                        scrubStartY = location.y
+                        return  // Don't do block selection
+                    }
+                }
+            }
+
             longPressActive = true
 
             // Save content offset so UITextView's selectedRange assignment can't scroll the view
@@ -123,6 +225,13 @@ class SCCodeTextView: UITextView {
             }
 
         case .changed:
+            // Handle scrub drag
+            if scrubActive {
+                let delta = Double(scrubStartY - location.y)
+                scValueScrubUpdate?(delta)
+                return
+            }
+
             guard longPressActive, let anchor = longPressAnchorLineRange else { return }
 
             let savedOffset = contentOffset
@@ -140,6 +249,13 @@ class SCCodeTextView: UITextView {
             setSelectedRangeWithoutScrolling(NSRange(location: start, length: end - start), savedOffset: savedOffset)
 
         case .ended, .cancelled, .failed:
+            if scrubActive {
+                scrubActive = false
+                scValueScrubEnd?()
+                scrubRange = nil
+                return
+            }
+
             longPressActive = false
             longPressAnchorLineRange = nil
             // Reset horizontal scroll to prevent content sliding off screen
@@ -470,6 +586,9 @@ struct CodeTextView: UIViewRepresentable {
     var onStop: (() -> Void)?
     var onSelectionChanged: ((String) -> Void)?
     var onDoubleTap: (() -> Void)?
+    var onScrubStart: ((NSRange, String, CGRect) -> Void)?
+    var onScrubUpdate: ((Double) -> Void)?
+    var onScrubEnd: (() -> Void)?
 
     func makeUIView(context: Context) -> SCCodeTextView {
         let textView = SCCodeTextView()
@@ -555,6 +674,9 @@ struct CodeTextView: UIViewRepresentable {
             textView?.snapshotSelectionForPlay() ?? ""
         }
         scDoubleTapCallback = onDoubleTap
+        scValueScrubStart = onScrubStart
+        scValueScrubUpdate = onScrubUpdate
+        scValueScrubEnd = onScrubEnd
 
         if textView.text != text {
             let selectedRange = textView.selectedRange
