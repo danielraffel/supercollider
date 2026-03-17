@@ -183,9 +183,10 @@ struct FileBrowserSheet: View {
                                 }
                                 Divider()
                                 Picker("Sort By", selection: $sortBy) {
-                                    Label("Name", systemImage: "textformat").tag("Name")
-                                    Label("Date", systemImage: "calendar").tag("Date")
-                                    Label("Size", systemImage: "arrow.up.arrow.down").tag("Size")
+                                    Text("Name").tag("Name")
+                                    Text("Kind").tag("Kind")
+                                    Text("Date").tag("Date")
+                                    Text("Size").tag("Size")
                                 }
                             } label: {
                                 Image(systemName: "ellipsis")
@@ -321,49 +322,81 @@ struct FileBrowserSheet: View {
     }
 
     var recordingsTab: some View {
-        List {
-            if app.isRecording {
-                HStack {
-                    Circle().fill(Color.red).frame(width: 8, height: 8)
-                    Text("Recording in progress...")
-                        .font(.subheadline.weight(.medium)).foregroundColor(.red)
-                    Spacer()
-                    Button { app.toggleRecording() } label: {
-                        Text("Stop").font(.caption.weight(.semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(Color.red).clipShape(Capsule())
+        Group {
+            if viewMode == "Icons" {
+                ScrollView {
+                    if app.isRecording {
+                        recordingBanner
                     }
-                }
-            }
-            ForEach(filteredRecordings) { rec in
-                Button { selectedRecording = rec } label: {
-                    HStack {
-                        Image(systemName: "waveform").foregroundColor(.red)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(rec.name).foregroundColor(.primary).lineLimit(1)
-                            HStack(spacing: 6) {
-                                Text(rec.duration); Text(rec.size)
-                            }.font(.caption2).foregroundColor(.secondary)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                        ForEach(filteredRecordings) { rec in
+                            Button { selectedRecording = rec } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "waveform.circle.fill")
+                                        .font(.system(size: 36))
+                                        .foregroundColor(.red)
+                                        .frame(height: 60)
+                                    Text(rec.name)
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                    Text(rec.duration)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(10)
+                                .cornerRadius(10)
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) { recordingToDelete = rec } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                ShareLink(item: rec.url) {
+                                    Label("Share", systemImage: "square.and.arrow.up")
+                                }
+                            }
                         }
-                        Spacer()
-                        Image(systemName: "play.circle").foregroundColor(.orange)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                }
+            } else {
+                List {
+                    if app.isRecording {
+                        recordingBanner
+                    }
+                    ForEach(filteredRecordings) { rec in
+                        Button { selectedRecording = rec } label: {
+                            HStack {
+                                Image(systemName: "waveform").foregroundColor(.red)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(rec.name).foregroundColor(.primary).lineLimit(1)
+                                    HStack(spacing: 6) {
+                                        Text(rec.duration); Text(rec.size)
+                                    }.font(.caption2).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "play.circle").foregroundColor(.orange)
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) { recordingToDelete = rec } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            ShareLink(item: rec.url) {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }.tint(.blue)
+                        }
+                    }
+                    if filteredRecordings.isEmpty && !app.isRecording {
+                        emptyLabel(searchText.isEmpty ? "No recordings yet" : "No matches")
                     }
                 }
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) { recordingToDelete = rec } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                    ShareLink(item: rec.url) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }.tint(.blue)
-                }
-            }
-            if filteredRecordings.isEmpty && !app.isRecording {
-                emptyLabel(searchText.isEmpty ? "No recordings yet" : "No matches")
+                .listStyle(.plain)
             }
         }
-        .listStyle(.plain)
         .confirmationDialog("Delete recording?", isPresented: Binding(
             get: { recordingToDelete != nil }, set: { if !$0 { recordingToDelete = nil } }
         ), titleVisibility: .visible) {
@@ -375,21 +408,71 @@ struct FileBrowserSheet: View {
         }
     }
 
+    var recordingBanner: some View {
+        HStack {
+            Circle().fill(Color.red).frame(width: 8, height: 8)
+            Text("Recording in progress...")
+                .font(.subheadline.weight(.medium)).foregroundColor(.red)
+            Spacer()
+            Button { app.toggleRecording() } label: {
+                Text("Stop").font(.caption.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Color.red).clipShape(Capsule())
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+    }
+
     var examplesTab: some View {
-        List {
-            ForEach(filteredExamples) { file in
-                Button { openFile(file) } label: {
-                    HStack {
-                        Text(file.name)
-                        Spacer()
-                        if file.path == app.currentFile {
-                            Image(systemName: "checkmark").foregroundColor(.accentColor)
+        Group {
+            if viewMode == "Icons" {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                        ForEach(filteredExamples) { file in
+                            Button { openFile(file) } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "book.closed.fill")
+                                        .font(.system(size: 36))
+                                        .foregroundColor(.orange)
+                                        .frame(height: 60)
+                                    Text(file.name.replacingOccurrences(of: "📘 ", with: ""))
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(10)
+                                .background(
+                                    file.path == app.currentFile
+                                        ? Color.accentColor.opacity(0.1) : Color.clear
+                                )
+                                .cornerRadius(10)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                }
+            } else {
+                List {
+                    ForEach(filteredExamples) { file in
+                        Button { openFile(file) } label: {
+                            HStack {
+                                Text(file.name)
+                                Spacer()
+                                if file.path == app.currentFile {
+                                    Image(systemName: "checkmark").foregroundColor(.accentColor)
+                                }
+                            }
                         }
                     }
                 }
+                .listStyle(.plain)
             }
         }
-        .listStyle(.plain)
     }
 
     // MARK: - Helpers
