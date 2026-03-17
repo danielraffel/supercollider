@@ -18,16 +18,14 @@ struct ContentView: View {
             FileBrowserSheet()
                 .environmentObject(app)
                 .presentationDetents([.medium, .large], selection: $fileSheetDetent)
-                .presentationDragIndicator(.visible)
+                .presentationDragIndicator(.hidden)
                 .interactiveDismissDisabled(true)
                 .modifier(BackgroundInteractionModifier())
         }
-        // Post Window
         .sheet(isPresented: $app.showPost) {
             PostOverlayView()
                 .environmentObject(app)
         }
-        // Settings
         .sheet(isPresented: $app.showSettings) {
             SettingsView()
                 .environmentObject(app)
@@ -35,12 +33,14 @@ struct ContentView: View {
     }
 }
 
-/// File browser content for the bottom sheet
+// MARK: - File Browser Sheet
+
 struct FileBrowserSheet: View {
     @EnvironmentObject var app: AppState
     @StateObject private var fileManager = SCFileManager()
-    @State private var selectedTab = 0
+    @State private var selectedTab = 0  // 0=Scripts, 1=Recordings, 2=Examples
     @State private var searchText = ""
+    @State private var isSearching = false
     @State private var showImporter = false
     @State private var showNewFileAlert = false
     @State private var newFileName = ""
@@ -53,89 +53,91 @@ struct FileBrowserSheet: View {
     @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs = true
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Top action row
-                HStack {
-                    Spacer()
+        VStack(spacing: 0) {
+            // Top bar: + ... icons
+            HStack {
+                Spacer()
 
-                    Menu {
-                        Button { showImporter = true } label: {
-                            Label("Import File", systemImage: "square.and.arrow.down")
-                        }
-                        Button {
-                            newFileName = ""
-                            showNewFileAlert = true
-                        } label: {
-                            Label("New Script", systemImage: "doc.badge.plus")
-                        }
-                        Button { showTemplates = true } label: {
-                            Label("From Template", systemImage: "doc.on.doc")
-                        }
+                // New file button
+                Button {
+                    newFileName = ""
+                    showNewFileAlert = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(Color(.systemGray5))
+                        .clipShape(Circle())
+                }
 
-                        Divider()
-
-                        Menu("Sort By") {
-                            Button { /* TODO */ } label: { Label("Name", systemImage: "textformat") }
-                            Button { /* TODO */ } label: { Label("Date", systemImage: "calendar") }
-                            Button { /* TODO */ } label: { Label("Size", systemImage: "arrow.up.arrow.down") }
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.body)
-                            .foregroundColor(.primary)
-                            .frame(width: 36, height: 36)
-                            .background(Color(.tertiarySystemBackground))
-                            .clipShape(Circle())
+                // More menu
+                Menu {
+                    Button { showImporter = true } label: {
+                        Label("Import File", systemImage: "square.and.arrow.down")
                     }
+                    Button { showTemplates = true } label: {
+                        Label("From Template", systemImage: "doc.on.doc")
+                    }
+                    Divider()
+                    Menu("Sort By") {
+                        Button { } label: { Label("Name", systemImage: "textformat") }
+                        Button { } label: { Label("Date", systemImage: "calendar") }
+                        Button { } label: { Label("Size", systemImage: "arrow.up.arrow.down") }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(Color(.systemGray5))
+                        .clipShape(Circle())
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
 
-                // Segmented tabs
-                Picker("", selection: $selectedTab) {
-                    Text("Scripts (\(filteredScripts.count))").tag(0)
-                    Text("Recordings (\(filteredRecordings.count))").tag(1)
-                    Text("Examples (\(filteredExamples.count))").tag(2)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-
-                // Search
+            // Search bar (expandable)
+            if isSearching {
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     TextField("Search", text: $searchText)
                         .textFieldStyle(.plain)
-                    if !searchText.isEmpty {
-                        Button { searchText = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
+                    Button {
+                        searchText = ""
+                        isSearching = false
+                    } label: {
+                        Text("Cancel")
+                            .font(.subheadline)
                     }
                 }
                 .padding(8)
-                .background(Color(.tertiarySystemBackground))
+                .background(Color(.systemGray5))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .padding(.horizontal, 12)
                 .padding(.bottom, 4)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
-                // Content
-                switch selectedTab {
-                case 0: scriptsTab
-                case 1: recordingsTab
-                case 2: examplesTab
-                default: scriptsTab
-                }
+            // File list content
+            switch selectedTab {
+            case 0: scriptsTab
+            case 1: recordingsTab
+            case 2: examplesTab
+            default: scriptsTab
             }
-            .onAppear {
-                fileManager.refreshRecordings()
-                fileManager.refreshFileList()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .scRecordingFinished)) { _ in
-                fileManager.refreshRecordings()
-            }
+
+            // Bottom tab bar with search
+            bottomTabBar
+        }
+        .onAppear {
+            fileManager.refreshRecordings()
+            fileManager.refreshFileList()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scRecordingFinished)) { _ in
+            fileManager.refreshRecordings()
         }
         .scDocumentImporter(isPresented: $showImporter) { url in
             importFile(from: url)
@@ -143,9 +145,7 @@ struct FileBrowserSheet: View {
         .alert("New Script", isPresented: $showNewFileAlert) {
             TextField("filename.scd", text: $newFileName)
             Button("Create") {
-                if let file = fileManager.createFile(name: newFileName) {
-                    openFile(file)
-                }
+                if let file = fileManager.createFile(name: newFileName) { openFile(file) }
             }
             Button("Cancel", role: .cancel) {}
         }
@@ -162,6 +162,53 @@ struct FileBrowserSheet: View {
         .sheet(item: $selectedRecording) { rec in
             RecordingPlayerView(recording: rec)
                 .presentationDetents([.medium])
+        }
+    }
+
+    // MARK: - Bottom Tab Bar
+
+    var bottomTabBar: some View {
+        HStack(spacing: 0) {
+            tabButton("Scripts", icon: "doc.text", tag: 0)
+            tabButton("Recordings", icon: "waveform", tag: 1)
+            tabButton("Examples", icon: "book.closed", tag: 2)
+
+            // Search button (separate, like Pages)
+            Button {
+                withAnimation { isSearching.toggle() }
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.body)
+                    .foregroundColor(isSearching ? .accentColor : .secondary)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        isSearching
+                            ? Color.accentColor.opacity(0.15)
+                            : Color(.systemGray5)
+                    )
+                    .clipShape(Circle())
+            }
+            .padding(.trailing, 8)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .padding(.bottom, 16)
+        .background(Color(.systemBackground).opacity(0.95))
+    }
+
+    private func tabButton(_ title: String, icon: String, tag: Int) -> some View {
+        Button {
+            selectedTab = tag
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.body)
+                Text(title)
+                    .font(.caption2)
+            }
+            .foregroundColor(selectedTab == tag ? .accentColor : .secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
         }
     }
 
@@ -184,7 +231,7 @@ struct FileBrowserSheet: View {
         return examples.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
 
-    // MARK: - Tabs
+    // MARK: - Tab Content
 
     var scriptsTab: some View {
         List {
@@ -195,8 +242,7 @@ struct FileBrowserSheet: View {
                         Text(file.name)
                         Spacer()
                         if file.path == app.currentFile {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.accentColor)
+                            Image(systemName: "checkmark").foregroundColor(.accentColor)
                         }
                     }
                 }
@@ -207,17 +253,16 @@ struct FileBrowserSheet: View {
                 }
             }
             if filteredScripts.isEmpty {
-                emptyState(searchText.isEmpty ? "No scripts yet." : "No matching scripts.")
+                emptyLabel(searchText.isEmpty ? "No scripts yet" : "No matches")
             }
         }
         .listStyle(.plain)
-        .confirmationDialog("Delete this script?", isPresented: Binding(
+        .confirmationDialog("Delete script?", isPresented: Binding(
             get: { fileToDelete != nil }, set: { if !$0 { fileToDelete = nil } }
         ), titleVisibility: .visible) {
-            if let file = fileToDelete {
-                Button("Delete \(file.name)", role: .destructive) {
-                    let _ = fileManager.deleteFile(file)
-                    fileToDelete = nil
+            if let f = fileToDelete {
+                Button("Delete \(f.name)", role: .destructive) {
+                    let _ = fileManager.deleteFile(f); fileToDelete = nil
                 }
             }
         }
@@ -228,16 +273,12 @@ struct FileBrowserSheet: View {
             ForEach(filteredRecordings) { rec in
                 Button { selectedRecording = rec } label: {
                     HStack {
-                        Image(systemName: "waveform")
-                            .foregroundColor(.red)
+                        Image(systemName: "waveform").foregroundColor(.red)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(rec.name).foregroundColor(.primary).lineLimit(1)
                             HStack(spacing: 6) {
-                                Text(rec.duration)
-                                Text(rec.size)
-                            }
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                                Text(rec.duration); Text(rec.size)
+                            }.font(.caption2).foregroundColor(.secondary)
                         }
                         Spacer()
                         Image(systemName: "play.circle").foregroundColor(.orange)
@@ -253,17 +294,16 @@ struct FileBrowserSheet: View {
                 }
             }
             if filteredRecordings.isEmpty {
-                emptyState(searchText.isEmpty ? "No recordings yet." : "No matching recordings.")
+                emptyLabel(searchText.isEmpty ? "No recordings yet" : "No matches")
             }
         }
         .listStyle(.plain)
-        .confirmationDialog("Delete this recording?", isPresented: Binding(
+        .confirmationDialog("Delete recording?", isPresented: Binding(
             get: { recordingToDelete != nil }, set: { if !$0 { recordingToDelete = nil } }
         ), titleVisibility: .visible) {
-            if let rec = recordingToDelete {
-                Button("Delete \(rec.name)", role: .destructive) {
-                    let _ = fileManager.deleteRecording(rec)
-                    recordingToDelete = nil
+            if let r = recordingToDelete {
+                Button("Delete \(r.name)", role: .destructive) {
+                    let _ = fileManager.deleteRecording(r); recordingToDelete = nil
                 }
             }
         }
@@ -277,8 +317,7 @@ struct FileBrowserSheet: View {
                         Text(file.name)
                         Spacer()
                         if file.path == app.currentFile {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.accentColor)
+                            Image(systemName: "checkmark").foregroundColor(.accentColor)
                         }
                     }
                 }
@@ -287,12 +326,10 @@ struct FileBrowserSheet: View {
         .listStyle(.plain)
     }
 
-    private func emptyState(_ text: String) -> some View {
+    private func emptyLabel(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline)
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
+            .font(.subheadline).foregroundColor(.secondary)
+            .frame(maxWidth: .infinity).padding(.vertical, 20)
     }
 
     // MARK: - Actions
@@ -330,7 +367,8 @@ struct FileBrowserSheet: View {
     }
 }
 
-/// Enables background interaction on iOS 16.4+
+// MARK: - Availability Modifier
+
 struct BackgroundInteractionModifier: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 16.4, *) {
