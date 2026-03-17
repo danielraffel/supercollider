@@ -52,6 +52,7 @@ struct ContentView: View {
             switch selectedIPadTab {
             case .editor, .none:
                 EditorView()
+                    .navigationBarHidden(true)
             case .files:
                 NavigationStack {
                     FileBrowserView()
