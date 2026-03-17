@@ -274,10 +274,11 @@ struct EditorView: View {
                 Button {
                     liveMode.toggle()
                     if liveMode {
-                        // Stop the original synth first, then start the Ndef version.
-                        // Subsequent slider changes update the Ndef smoothly (no stop needed).
-                        app.stopAll()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        // Free all synths in the default group (keeps the group alive,
+                        // unlike CmdPeriod which destroys it and causes timing issues).
+                        // Then immediately start the Ndef version.
+                        app.evaluate("Server.internal.defaultGroup.freeAll;")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                             liveApply()
                         }
                     } else {
@@ -347,9 +348,11 @@ struct EditorView: View {
             if range.location + range.length <= nsText.length {
                 code = nsText.substring(with: range)
             } else {
+                app.appendPost("⚠ Live: selection range out of bounds, using whole file\n")
                 code = app.codeText
             }
         } else {
+            app.appendPost("⚠ Live: no selection range, using whole file\n")
             code = app.codeText
         }
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -357,7 +360,7 @@ struct EditorView: View {
 
         // If already using Ndef, just re-evaluate — it cross-fades automatically
         if trimmed.contains("Ndef(") {
-            app.evaluate(trimmed)
+            liveEvaluate(trimmed)
             liveNdefActive = true
             return
         }
@@ -380,14 +383,24 @@ struct EditorView: View {
             }
             if !body.isEmpty {
                 let ndefCode = "Ndef(\\scrub, \(body)).play;"
-                app.evaluate(ndefCode)
+                app.appendPost("Live → \(ndefCode.prefix(100))\n")
+                liveEvaluate(ndefCode)
                 liveNdefActive = true
                 return
             }
         }
 
-        // Fallback: just re-evaluate the code as-is (don't stop — avoid audio gap)
-        app.evaluate(trimmed)
+        // Fallback: just re-evaluate the code as-is
+        app.appendPost("Live fallback → \(trimmed.prefix(80))\n")
+        liveEvaluate(trimmed)
+    }
+
+    /// Evaluate code silently (no toast spam during live scrubbing)
+    private func liveEvaluate(_ code: String) {
+        guard app.sclangReady else { return }
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let _ = app.sclang.interpret(trimmed)
     }
 
     /// Clean up Ndef when turning off live mode
