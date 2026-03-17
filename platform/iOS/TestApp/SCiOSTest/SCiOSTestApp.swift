@@ -17,6 +17,12 @@ struct SCiOSTestApp: App {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     appState.bootSystem()
                 }
+                // If there's a last-opened file, go straight to editor
+                if appState.currentFile != nil && !appState.codeText.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        appState.showEditor = true
+                    }
+                }
             }
             .preferredColorScheme(.dark)
         }

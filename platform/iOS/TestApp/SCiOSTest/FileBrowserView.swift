@@ -48,35 +48,6 @@ struct FileBrowserView: View {
         .onReceive(NotificationCenter.default.publisher(for: .scRecordingFinished)) { _ in
             fileManager.refreshRecordings()
         }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    app.showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                }
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    showTemplates = true
-                } label: {
-                    Image(systemName: "doc.badge.plus")
-                }
-
-                Button {
-                    showImporter = true
-                } label: {
-                    Image(systemName: "square.and.arrow.down")
-                }
-
-                Button {
-                    newFileName = ""
-                    showNewFileAlert = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-        }
         .scDocumentImporter(isPresented: $showImporter) { url in
             importFile(from: url)
         }
@@ -219,11 +190,32 @@ struct FileBrowserView: View {
 
     var heroHeader: some View {
         VStack(spacing: 12) {
+            // Top action row
+            HStack {
+                Button { app.showSettings = true } label: {
+                    iconCircle("gearshape")
+                }
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    Button { showImporter = true } label: {
+                        iconCircle("square.and.arrow.down")
+                    }
+                    Button {
+                        newFileName = ""
+                        showNewFileAlert = true
+                    } label: {
+                        iconCircle("plus")
+                    }
+                }
+            }
+
             Text("SuperCollider")
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 32, weight: .bold))
                 .foregroundColor(.primary)
 
-            HStack(spacing: 12) {
+            VStack(spacing: 10) {
                 Button {
                     showTemplates = true
                 } label: {
@@ -231,7 +223,7 @@ struct FileBrowserView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 13)
                         .background(Color.orange)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
@@ -247,8 +239,8 @@ struct FileBrowserView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.primary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(.secondarySystemBackground))
+                        .padding(.vertical, 13)
+                        .background(Color(.tertiarySystemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
@@ -257,11 +249,19 @@ struct FileBrowserView: View {
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                .fill(Color(.secondarySystemBackground))
         )
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    private func iconCircle(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.body)
+            .foregroundColor(.primary)
+            .frame(width: 36, height: 36)
+            .background(Color(.tertiarySystemBackground))
+            .clipShape(Circle())
     }
 
     // MARK: - Actions

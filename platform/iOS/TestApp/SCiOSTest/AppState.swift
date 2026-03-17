@@ -20,7 +20,6 @@ class AppState: ObservableObject {
     @Published var showPost: Bool = false
     @Published var showSettings: Bool = false
     @Published var showEditor: Bool = false
-    @Published var selectedTab: Int = 0
     @Published var postOutput = ""
     @Published var toastMessage: String? = nil
     @Published var toastIsError: Bool = false
