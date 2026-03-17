@@ -25,6 +25,11 @@ struct EditorView: View {
         .overlay(alignment: .bottom) {
             toastView
         }
+        .overlay {
+            if !app.serverRunning || !app.sclangReady {
+                bootOverlay
+            }
+        }
         // Keyboard shortcut: Cmd+E toggles Edit mode
         // Hidden keyboard shortcuts
         .background(
@@ -88,6 +93,22 @@ struct EditorView: View {
             .padding(.bottom, 12)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+
+    // MARK: - Boot Overlay
+
+    var bootOverlay: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .tint(.orange)
+                .scaleEffect(1.5)
+
+            Text(app.serverRunning ? "Compiling class library..." : "Starting audio engine...")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.7))
     }
 
     // MARK: - Nav Bar (Read/Edit toggle)
@@ -223,12 +244,15 @@ struct EditorView: View {
             }
 
             if !app.sclangReady {
-                Text("compiling...")
-                    .font(.caption)
-                    .foregroundColor(.orange)
+                ProgressView()
+                    .tint(.orange)
+                    .scaleEffect(0.8)
             } else if app.isRecording {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 8, height: 8)
                 Text("REC")
-                    .font(.caption.bold())
+                    .font(.caption2.bold())
                     .foregroundColor(.red)
             }
 
