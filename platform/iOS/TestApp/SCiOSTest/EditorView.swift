@@ -202,7 +202,12 @@ struct EditorView: View {
         HStack(spacing: 12) {
             Button {
                 app.isScrubbing = false
-                app.evaluateSelection()
+                // Stop current sound, then re-evaluate with new value
+                // This prevents duplicate synths stacking
+                app.stopAll()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    app.evaluateSelection()
+                }
                 app.scrubRange = nil
                 app.showToast("Applied", isError: false)
             } label: {

@@ -20,7 +20,7 @@ struct ContentView: View {
                 .presentationDetents([.medium, .large], selection: $fileSheetDetent)
                 .presentationDragIndicator(.hidden)
                 .interactiveDismissDisabled(true)
-                .modifier(BackgroundInteractionModifier())
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         }
         .sheet(isPresented: $app.showPost) {
             PostOverlayView()
@@ -38,9 +38,7 @@ struct ContentView: View {
 struct FileBrowserSheet: View {
     @EnvironmentObject var app: AppState
     @StateObject private var fileManager = SCFileManager()
-    @State private var selectedTab = 0  // 0=Scripts, 1=Recordings, 2=Examples
     @State private var searchText = ""
-    @State private var isSearching = false
     @State private var showImporter = false
     @State private var showNewFileAlert = false
     @State private var newFileName = ""
@@ -53,84 +51,50 @@ struct FileBrowserSheet: View {
     @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs = true
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Top bar: + ... icons
+        TabView {
+            Tab("Scripts", systemImage: "doc.text") {
+                scriptsTab
+            }
+
+            Tab("Recordings", systemImage: "waveform") {
+                recordingsTab
+            }
+
+            Tab("Examples", systemImage: "book.closed") {
+                examplesTab
+            }
+
+            Tab("Search", systemImage: "magnifyingglass", role: .search) {
+                NavigationStack {
+                    searchTab
+                }
+            }
+        }
+        .searchable(text: $searchText, prompt: "Search files")
+        .tabViewBottomAccessory {
+            // ... menu as bottom accessory
             HStack {
                 Spacer()
-
-                // New file button
-                Button {
-                    newFileName = ""
-                    showNewFileAlert = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.body.weight(.medium))
-                        .foregroundColor(.primary)
-                        .frame(width: 36, height: 36)
-                        .background(Color(.systemGray5))
-                        .clipShape(Circle())
-                }
-
-                // More menu
                 Menu {
                     Button { showImporter = true } label: {
                         Label("Import File", systemImage: "square.and.arrow.down")
                     }
+                    Button {
+                        newFileName = ""
+                        showNewFileAlert = true
+                    } label: {
+                        Label("New Script", systemImage: "doc.badge.plus")
+                    }
                     Button { showTemplates = true } label: {
                         Label("From Template", systemImage: "doc.on.doc")
-                    }
-                    Divider()
-                    Menu("Sort By") {
-                        Button { } label: { Label("Name", systemImage: "textformat") }
-                        Button { } label: { Label("Date", systemImage: "calendar") }
-                        Button { } label: { Label("Size", systemImage: "arrow.up.arrow.down") }
                     }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.body.weight(.medium))
                         .foregroundColor(.primary)
-                        .frame(width: 36, height: 36)
-                        .background(Color(.systemGray5))
-                        .clipShape(Circle())
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
-
-            // Search bar (expandable)
-            if isSearching {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Search", text: $searchText)
-                        .textFieldStyle(.plain)
-                    Button {
-                        searchText = ""
-                        isSearching = false
-                    } label: {
-                        Text("Cancel")
-                            .font(.subheadline)
-                    }
-                }
-                .padding(8)
-                .background(Color(.systemGray5))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .padding(.horizontal, 12)
-                .padding(.bottom, 4)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            // File list content
-            switch selectedTab {
-            case 0: scriptsTab
-            case 1: recordingsTab
-            case 2: examplesTab
-            default: scriptsTab
-            }
-
-            // Bottom tab bar with search
-            bottomTabBar
+            .padding(.horizontal, 20)
         }
         .onAppear {
             fileManager.refreshRecordings()
@@ -163,72 +127,6 @@ struct FileBrowserSheet: View {
             RecordingPlayerView(recording: rec)
                 .presentationDetents([.medium])
         }
-    }
-
-    // MARK: - Bottom Tab Bar
-
-    var bottomTabBar: some View {
-        HStack(spacing: 0) {
-            tabButton("Scripts", icon: "doc.text", tag: 0)
-            tabButton("Recordings", icon: "waveform", tag: 1)
-            tabButton("Examples", icon: "book.closed", tag: 2)
-
-            // Search button (separate, like Pages)
-            Button {
-                withAnimation { isSearching.toggle() }
-            } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.body)
-                    .foregroundColor(isSearching ? .accentColor : .secondary)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        isSearching
-                            ? Color.accentColor.opacity(0.15)
-                            : Color(.systemGray5)
-                    )
-                    .clipShape(Circle())
-            }
-            .padding(.trailing, 8)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .padding(.bottom, 16)
-        .background(Color(.systemBackground).opacity(0.95))
-    }
-
-    private func tabButton(_ title: String, icon: String, tag: Int) -> some View {
-        Button {
-            selectedTab = tag
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.body)
-                Text(title)
-                    .font(.caption2)
-            }
-            .foregroundColor(selectedTab == tag ? .accentColor : .secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-        }
-    }
-
-    // MARK: - Filtered Lists
-
-    private var filteredScripts: [SCFileManager.SCFile] {
-        let scripts = fileManager.files.filter { !$0.isExample }
-        if searchText.isEmpty { return scripts }
-        return scripts.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-    }
-
-    private var filteredRecordings: [SCFileManager.Recording] {
-        if searchText.isEmpty { return fileManager.recordings }
-        return fileManager.recordings.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-    }
-
-    private var filteredExamples: [SCFileManager.SCFile] {
-        let examples = fileManager.files.filter { $0.isExample }
-        if searchText.isEmpty { return examples }
-        return examples.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
 
     // MARK: - Tab Content
@@ -326,6 +224,64 @@ struct FileBrowserSheet: View {
         .listStyle(.plain)
     }
 
+    var searchTab: some View {
+        List {
+            if !filteredScripts.isEmpty {
+                Section("Scripts") {
+                    ForEach(filteredScripts) { file in
+                        Button { openFile(file) } label: {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                Text(file.name)
+                            }
+                        }
+                    }
+                }
+            }
+            if !filteredRecordings.isEmpty {
+                Section("Recordings") {
+                    ForEach(filteredRecordings) { rec in
+                        Button { selectedRecording = rec } label: {
+                            HStack {
+                                Image(systemName: "waveform").foregroundColor(.red)
+                                Text(rec.name)
+                            }
+                        }
+                    }
+                }
+            }
+            if !filteredExamples.isEmpty {
+                Section("Examples") {
+                    ForEach(filteredExamples) { file in
+                        Button { openFile(file) } label: {
+                            Text(file.name)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    // MARK: - Filtered Lists
+
+    private var filteredScripts: [SCFileManager.SCFile] {
+        let scripts = fileManager.files.filter { !$0.isExample }
+        if searchText.isEmpty { return scripts }
+        return scripts.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    private var filteredRecordings: [SCFileManager.Recording] {
+        if searchText.isEmpty { return fileManager.recordings }
+        return fileManager.recordings.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    private var filteredExamples: [SCFileManager.SCFile] {
+        let examples = fileManager.files.filter { $0.isExample }
+        if searchText.isEmpty { return examples }
+        return examples.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     private func emptyLabel(_ text: String) -> some View {
         Text(text)
             .font(.subheadline).foregroundColor(.secondary)
@@ -363,18 +319,6 @@ struct FileBrowserSheet: View {
             fileManager.refreshFileList()
         } catch {
             app.appendPost("Import error: \(error.localizedDescription)\n")
-        }
-    }
-}
-
-// MARK: - Availability Modifier
-
-struct BackgroundInteractionModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 16.4, *) {
-            content.presentationBackgroundInteraction(.enabled(upThrough: .medium))
-        } else {
-            content
         }
     }
 }
