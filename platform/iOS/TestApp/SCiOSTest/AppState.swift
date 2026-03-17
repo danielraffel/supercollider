@@ -1,6 +1,10 @@
 import Foundation
 import Combine
 
+extension Notification.Name {
+    static let scRecordingFinished = Notification.Name("scRecordingFinished")
+}
+
 /// Central app state managing scsynth + sclang lifecycle
 class AppState: ObservableObject {
     @Published var serverRunning = false
@@ -276,6 +280,9 @@ class AppState: ObservableObject {
             let _ = sclang.interpret("Server.internal.stopRecording;")
             isRecording = false
             appendPost("⏺ Recording saved\n")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                NotificationCenter.default.post(name: .scRecordingFinished, object: nil)
+            }
         }
         if sclangReady {
             let _ = sclang.interpret("CmdPeriod.run;")
@@ -296,6 +303,10 @@ class AppState: ObservableObject {
             """)
             isRecording = false
             appendPost("⏺ Recording saved\n")
+            // Notify file browser to refresh recordings list
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                NotificationCenter.default.post(name: .scRecordingFinished, object: nil)
+            }
         } else {
             // Build recording filename: PatchName_YYMMDD_HHMMSS.wav
             let patchName: String

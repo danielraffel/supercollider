@@ -16,7 +16,8 @@ struct EditorView: View {
                 onEvaluate: { app.evaluateSelection() },
                 onEvaluateCode: { code in app.evaluateCode(code) },
                 onStop: { app.stopAll() },
-                onSelectionChanged: { selected in app.lastSelection = selected }
+                onSelectionChanged: { selected in app.lastSelection = selected },
+                onDoubleTap: { app.isEditing = true }
             )
             .layoutPriority(1)
         }

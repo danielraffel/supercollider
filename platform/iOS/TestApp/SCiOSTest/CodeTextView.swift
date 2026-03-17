@@ -8,6 +8,8 @@ var scStopCallback: (() -> Void)?
 var scGetSelectedText: (() -> String)?
 /// Closure to snapshot selection before focus is lost (for Play button)
 var scSnapshotSelection: (() -> String)?
+/// Closure called on double-tap (to enter Edit mode from Read mode)
+var scDoubleTapCallback: (() -> Void)?
 
 /// Custom UITextView subclass with SC-specific menu actions and long-press line selection
 class SCCodeTextView: UITextView {
@@ -46,6 +48,18 @@ class SCCodeTextView: UITextView {
         threeFingerTap.numberOfTouchesRequired = 3
         threeFingerTap.delegate = self
         addGestureRecognizer(threeFingerTap)
+
+        // Double-tap → Enter Edit mode (when in Read mode)
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        doubleTap.delegate = self
+        addGestureRecognizer(doubleTap)
+    }
+
+    @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+        if gesture.state == .ended && !isEditable {
+            scDoubleTapCallback?()
+        }
     }
 
     @objc private func handleTwoFingerTap(_ gesture: UITapGestureRecognizer) {
@@ -455,6 +469,7 @@ struct CodeTextView: UIViewRepresentable {
     var onEvaluateCode: ((String) -> Void)?
     var onStop: (() -> Void)?
     var onSelectionChanged: ((String) -> Void)?
+    var onDoubleTap: (() -> Void)?
 
     func makeUIView(context: Context) -> SCCodeTextView {
         let textView = SCCodeTextView()
@@ -539,6 +554,7 @@ struct CodeTextView: UIViewRepresentable {
         scSnapshotSelection = { [weak textView] in
             textView?.snapshotSelectionForPlay() ?? ""
         }
+        scDoubleTapCallback = onDoubleTap
 
         if textView.text != text {
             let selectedRange = textView.selectedRange

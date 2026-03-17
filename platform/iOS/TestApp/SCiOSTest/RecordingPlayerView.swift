@@ -42,22 +42,41 @@ struct RecordingPlayerView: View {
                 }
                 .padding(.top, 8)
 
-                // Progress bar
+                // Scrubbable progress bar
                 VStack(spacing: 4) {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            // Track
+                            // Track background
                             Capsule()
                                 .fill(Color(.systemGray4))
                                 .frame(height: 6)
 
-                            // Progress
+                            // Progress fill
                             Capsule()
                                 .fill(Color.orange)
                                 .frame(width: max(0, geo.size.width * player.progress), height: 6)
+
+                            // Scrub thumb
+                            Circle()
+                                .fill(Color.orange)
+                                .frame(width: player.isScrubbing ? 20 : 12, height: player.isScrubbing ? 20 : 12)
+                                .offset(x: max(0, geo.size.width * player.progress - 6))
+                                .animation(.easeOut(duration: 0.1), value: player.isScrubbing)
                         }
+                        .frame(height: 20)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let fraction = max(0, min(1, value.location.x / geo.size.width))
+                                    player.scrub(to: fraction)
+                                }
+                                .onEnded { _ in
+                                    player.endScrub()
+                                }
+                        )
                     }
-                    .frame(height: 6)
+                    .frame(height: 20)
 
                     HStack {
                         Text(player.currentTimeString)
@@ -155,12 +174,14 @@ struct RecordingPlayerView: View {
 /// Simple AVAudioPlayer wrapper
 class AudioPlayer: ObservableObject {
     @Published var isPlaying = false
+    @Published var isScrubbing = false
     @Published var progress: Double = 0
     @Published var currentTimeString = "0:00"
     @Published var remainingTimeString = "0:00"
 
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
+    private var wasPlayingBeforeScrub = false
 
     func load(url: URL) {
         do {
@@ -200,6 +221,29 @@ class AudioPlayer: ObservableObject {
         let newTime = max(0, min(player.duration, player.currentTime + seconds))
         player.currentTime = newTime
         updateTimeDisplay()
+    }
+
+    func scrub(to fraction: Double) {
+        guard let player = audioPlayer else { return }
+        if !isScrubbing {
+            isScrubbing = true
+            wasPlayingBeforeScrub = player.isPlaying
+            player.pause()
+        }
+        let newTime = fraction * player.duration
+        player.currentTime = max(0, min(player.duration, newTime))
+        updateTimeDisplay()
+    }
+
+    func endScrub() {
+        isScrubbing = false
+        if wasPlayingBeforeScrub {
+            audioPlayer?.play()
+            isPlaying = true
+            timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                self?.updateTimeDisplay()
+            }
+        }
     }
 
     private func updateTimeDisplay() {

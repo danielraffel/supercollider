@@ -1,4 +1,6 @@
 import Foundation
+import AVFoundation
+import CoreMedia
 
 /// Manages SC script files within the iOS sandbox
 class SCFileManager: ObservableObject {
@@ -26,6 +28,7 @@ class SCFileManager: ObservableObject {
         let name: String
         let url: URL
         let size: String
+        let duration: String
         let date: Date
     }
 
@@ -89,7 +92,18 @@ class SCFileManager: ObservableObject {
                 else if bytes < 1024 * 1024 { sizeStr = "\(bytes / 1024) KB" }
                 else { sizeStr = String(format: "%.1f MB", Double(bytes) / (1024 * 1024)) }
                 let date = attrs?.contentModificationDate ?? Date.distantPast
-                result.append(Recording(name: url.lastPathComponent, url: url, size: sizeStr, date: date))
+                // Get audio duration (synchronous; deprecated warning is acceptable)
+                let asset = AVURLAsset(url: url)
+                let durationSec = CMTimeGetSeconds(asset.duration)
+                let durStr: String
+                if durationSec.isFinite && durationSec > 0 {
+                    let mins = Int(durationSec) / 60
+                    let secs = Int(durationSec) % 60
+                    durStr = String(format: "%d:%02d", mins, secs)
+                } else {
+                    durStr = "--:--"
+                }
+                result.append(Recording(name: url.lastPathComponent, url: url, size: sizeStr, duration: durStr, date: date))
             }
         }
 

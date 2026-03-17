@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// File browser for SC scripts
+/// File browser with segmented tabs: Scripts / Recordings / Examples
 struct FileBrowserView: View {
     @EnvironmentObject var app: AppState
     @StateObject private var fileManager = SCFileManager()
@@ -9,91 +9,36 @@ struct FileBrowserView: View {
     @State private var showImporter = false
     @State private var showTemplates = false
     @State private var selectedRecording: SCFileManager.Recording? = nil
+    @State private var selectedTab = 0  // 0=Scripts, 1=Recordings, 2=Examples
 
     var body: some View {
-        List {
-            Section("Scripts") {
-                ForEach(fileManager.files.filter { !$0.isExample }) { file in
-                    Button {
-                        openFile(file)
-                    } label: {
-                        HStack {
-                            Image(systemName: "doc.text")
-                            Text(file.name)
-                            Spacer()
-                            if file.path == app.currentFile {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.accentColor)
-                            }
-                        }
-                    }
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            let _ = fileManager.deleteFile(file)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
+        VStack(spacing: 0) {
+            // Segmented control
+            Picker("", selection: $selectedTab) {
+                Text("Scripts").tag(0)
+                Text("Recordings").tag(1)
+                Text("Examples").tag(2)
             }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
 
-            if !fileManager.recordings.isEmpty {
-                Section("Recordings") {
-                    ForEach(fileManager.recordings) { rec in
-                        Button {
-                            selectedRecording = rec
-                        } label: {
-                            HStack {
-                                Image(systemName: "waveform")
-                                    .foregroundColor(.red)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(rec.name)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                    Text(rec.size)
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "play.circle")
-                                    .foregroundColor(.orange)
-                            }
-                        }
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                let _ = fileManager.deleteRecording(rec)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                            ShareLink(item: rec.url) {
-                                Label("Share", systemImage: "square.and.arrow.up")
-                            }
-                            .tint(.blue)
-                        }
-                    }
-                }
-            }
-
-            if !fileManager.files.filter({ $0.isExample }).isEmpty {
-                Section("Examples") {
-                    ForEach(fileManager.files.filter { $0.isExample }) { file in
-                        Button {
-                            openFile(file)
-                        } label: {
-                            HStack {
-                                Text(file.name)
-                                Spacer()
-                                if file.path == app.currentFile {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(.accentColor)
-                                }
-                            }
-                        }
-                    }
-                }
+            // Tab content
+            switch selectedTab {
+            case 0:
+                scriptsTab
+            case 1:
+                recordingsTab
+            case 2:
+                examplesTab
+            default:
+                scriptsTab
             }
         }
         .onAppear {
+            fileManager.refreshRecordings()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .scRecordingFinished)) { _ in
             fileManager.refreshRecordings()
         }
         .toolbar {
@@ -149,8 +94,121 @@ struct FileBrowserView: View {
         }
         .sheet(item: $selectedRecording) { rec in
             RecordingPlayerView(recording: rec)
+                .presentationDetents([.medium])
         }
     }
+
+    // MARK: - Scripts Tab
+
+    var scriptsTab: some View {
+        List {
+            ForEach(fileManager.files.filter { !$0.isExample }) { file in
+                Button {
+                    openFile(file)
+                } label: {
+                    HStack {
+                        Image(systemName: "doc.text")
+                        Text(file.name)
+                        Spacer()
+                        if file.path == app.currentFile {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                }
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        let _ = fileManager.deleteFile(file)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            }
+
+            if fileManager.files.filter({ !$0.isExample }).isEmpty {
+                Text("No scripts yet.\nTap + to create one or use a template.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            }
+        }
+    }
+
+    // MARK: - Recordings Tab
+
+    var recordingsTab: some View {
+        List {
+            if fileManager.recordings.isEmpty {
+                Text("No recordings yet.\nTap the record button in the editor to start.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            } else {
+                ForEach(fileManager.recordings) { rec in
+                    Button {
+                        selectedRecording = rec
+                    } label: {
+                        HStack {
+                            Image(systemName: "waveform")
+                                .foregroundColor(.red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rec.name)
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
+                                HStack(spacing: 6) {
+                                    Text(rec.duration)
+                                    Text(rec.size)
+                                }
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "play.circle")
+                                .foregroundColor(.orange)
+                        }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            let _ = fileManager.deleteRecording(rec)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        ShareLink(item: rec.url) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.blue)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Examples Tab
+
+    var examplesTab: some View {
+        List {
+            ForEach(fileManager.files.filter { $0.isExample }) { file in
+                Button {
+                    openFile(file)
+                } label: {
+                    HStack {
+                        Text(file.name)
+                        Spacer()
+                        if file.path == app.currentFile {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Actions
 
     @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
     @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs = true
