@@ -56,6 +56,24 @@ struct EditorView: View {
         }
         .overlay {
             if app.isScrubbing {
+                // Tap background to dismiss (reverts to original)
+                Color.black.opacity(0.01)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        // Revert to original value
+                        if let range = app.scrubRange {
+                            let nsText = app.codeText as NSString
+                            if range.location + range.length <= nsText.length {
+                                app.codeText = nsText.replacingCharacters(in: range, with: app.scrubOriginalValue)
+                            }
+                        }
+                        stopLiveNdef()
+                        liveMode = false
+                        app.isScrubbing = false
+                        app.scrubRange = nil
+                    }
+                    .allowsHitTesting(true)
+
                 scrubPopup
             }
         }
@@ -164,7 +182,7 @@ struct EditorView: View {
             let range = scrubRange(for: original)
             Slider(value: $app.scrubValue, in: range)
                 .tint(.orange)
-                .onChange(of: app.scrubValue) { _ in
+                .onChange(of: app.scrubValue) { _, _ in
                     updateCodeWithScrubValue()
                     if liveMode {
                         liveApply()

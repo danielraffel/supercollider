@@ -18,6 +18,27 @@ var scValueScrubEnd: (() -> Void)?
 /// Custom UITextView subclass with SC-specific menu actions and long-press line selection
 class SCCodeTextView: UITextView {
 
+    /// When false (Read mode), keyboard is suppressed but selection still works
+    var readModeActive = false {
+        didSet {
+            if readModeActive != oldValue {
+                // Force keyboard to dismiss/show when mode changes
+                if readModeActive && isFirstResponder {
+                    // Don't resign — just reload input views to hide keyboard
+                    reloadInputViews()
+                } else if !readModeActive && isFirstResponder {
+                    reloadInputViews()
+                }
+            }
+        }
+    }
+
+    // Override inputView to suppress keyboard in Read mode
+    override var inputView: UIView? {
+        get { readModeActive ? UIView() : super.inputView }
+        set { super.inputView = newValue }
+    }
+
     // Tracks whether a long-press is active for line-based selection
     private var longPressActive = false
     // The character range of the anchor line when long-press started
@@ -251,28 +272,9 @@ class SCCodeTextView: UITextView {
             setSelectedRangeWithoutScrolling(NSRange(location: start, length: end - start), savedOffset: savedOffset)
 
         case .ended, .cancelled, .failed:
-            // Save selection before clearing long-press state
-            let finalSelection = selectedRange
             longPressActive = false
             longPressAnchorLineRange = nil
-
-            // In read mode, UITextView clears selection on gesture end.
-            // Re-assert it after a brief delay.
-            if !isEditable && finalSelection.length > 0 {
-                let savedOffset = contentOffset
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-                    self.setSelectedRangeWithoutScrolling(finalSelection, savedOffset: savedOffset)
-                    // Also save to lastSelection callback
-                    if let text = self.text {
-                        let nsText = text as NSString
-                        if finalSelection.location + finalSelection.length <= nsText.length {
-                            let selectedText = nsText.substring(with: finalSelection)
-                            scGetSelectedText = { selectedText }
-                        }
-                    }
-                }
-            }
+            // Selection persists because isEditable=true (editing blocked by delegate)
 
             // Reset horizontal scroll to prevent content sliding off screen
             if contentOffset.x != 0 {
@@ -667,7 +669,12 @@ struct CodeTextView: UIViewRepresentable {
         context.coordinator.onSelectionChanged = onSelectionChanged
 
         // Read/Edit mode: control whether text is editable
-        textView.isEditable = isEditable
+        // Always keep isEditable=true so UITextView maintains selection.
+        // We block actual text changes in Read mode via shouldChangeTextIn delegate.
+        // Keyboard is suppressed in Read mode via inputView override.
+        textView.isEditable = true
+        textView.readModeActive = !isEditable
+        context.coordinator.allowEditing = isEditable
 
         // When AppState.lastSelection is cleared (after evaluation), reset the dedup
         // tracker so the user can re-select the same text and have it register again.
@@ -715,6 +722,9 @@ struct CodeTextView: UIViewRepresentable {
         var stopAll: (() -> Void)?
         /// Callback to save selection to AppState.lastSelection
         var onSelectionChanged: ((String) -> Void)?
+        /// When false, blocks text editing (Read mode) while keeping isEditable=true
+        /// so UITextView maintains text selection properly
+        var allowEditing: Bool = true
         private var highlightTimer: Timer?
         /// Tracks the last reported selection to avoid spurious updates during scrolling
         private var lastReportedSelection: String = ""
@@ -727,6 +737,11 @@ struct CodeTextView: UIViewRepresentable {
         /// Called when AppState.lastSelection is cleared so the same text can be re-selected
         func resetSelectionTracking() {
             lastReportedSelection = ""
+        }
+
+        // Block text changes in Read mode (isEditable stays true for selection)
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            return allowEditing
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {

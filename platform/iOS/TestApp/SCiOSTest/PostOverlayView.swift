@@ -19,7 +19,7 @@ struct PostOverlayView: View {
                         .id("postBottom")
                 }
                 .background(Color(.systemBackground))
-                .onChange(of: app.postOutput) { _ in
+                .onChange(of: app.postOutput) { _, _ in
                     withAnimation(.easeOut(duration: 0.1)) {
                         proxy.scrollTo("postBottom", anchor: .bottom)
                     }

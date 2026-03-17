@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var app: AppState
     @State private var fileSheetDetent: PresentationDetent = .medium
+    @State private var sheetReady = false
 
     var body: some View {
         NavigationStack {
@@ -13,8 +14,8 @@ struct ContentView: View {
                         .toolbar(.hidden, for: .navigationBar)
                 }
         }
-        // File browser as non-dismissible bottom sheet
-        .sheet(isPresented: .constant(!app.showEditor)) {
+        // File browser sheet — always presented, hidden when editor is showing
+        .sheet(isPresented: $sheetReady) {
             FileBrowserSheet(sheetDetent: $fileSheetDetent)
                 .environmentObject(app)
                 .presentationDetents([.medium, .large], selection: $fileSheetDetent)
@@ -27,7 +28,15 @@ struct ContentView: View {
             PostOverlayView()
                 .environmentObject(app)
         }
-        // Settings handled by fullScreenCover on sheet (not here)
+        .onAppear {
+            // Present sheet once on launch, never dismiss it
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                sheetReady = true
+            }
+        }
+        // When editor shows/hides, just let the nav stack handle it
+        // The sheet stays presented underneath
+        .onChange(of: app.showEditor) { _, _ in }
     }
 }
 
@@ -47,6 +56,7 @@ struct FileBrowserSheet: View {
     @State private var fileToDelete: SCFileManager.SCFile? = nil
     @State private var recordingToDelete: SCFileManager.Recording? = nil
     @State private var sortBy = "Date"
+    @State private var viewMode = "List"  // "List" or "Icons"
     @Namespace private var glassNS
 
     @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
@@ -56,10 +66,8 @@ struct FileBrowserSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar: Liquid Glass pill toolbar
             topBar
 
-            // File list
             Group {
                 switch selectedTab {
                 case 0: scriptsTab
@@ -70,7 +78,6 @@ struct FileBrowserSheet: View {
             }
             .frame(maxHeight: .infinity)
 
-            // Bottom tab bar in glass pill
             bottomTabBar
         }
         .onAppear {
@@ -90,12 +97,10 @@ struct FileBrowserSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        // Template picker as fullScreenCover ON the sheet (above the sheet)
         .fullScreenCover(isPresented: $app.showTemplates) {
             TemplateCoverView()
                 .environmentObject(app)
         }
-        // Settings as sheet ON the file browser sheet
         .sheet(isPresented: $app.showSettings) {
             SettingsView()
                 .environmentObject(app)
@@ -106,14 +111,13 @@ struct FileBrowserSheet: View {
         }
     }
 
-    // MARK: - Top Bar (all icons on same line)
+    // MARK: - Top Bar
 
     var topBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Spacer()
 
             if isSearching {
-                // Expanded search
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
@@ -131,7 +135,7 @@ struct FileBrowserSheet: View {
                 .glassEffect(.regular, in: .capsule)
                 .transition(.opacity)
             } else {
-                // Pill toolbar: [+] [...] grouped pill + [🔍] pill — all on one HStack line
+                // All icons on one line: [+] [...] in one pill, [search] separate
                 HStack(spacing: 8) {
                     GlassEffectContainer(spacing: 8) {
                         HStack(spacing: 0) {
@@ -165,6 +169,11 @@ struct FileBrowserSheet: View {
                                     Label("New Script", systemImage: "doc.badge.plus")
                                 }
                                 Divider()
+                                Picker("View", selection: $viewMode) {
+                                    Label("Icons", systemImage: "square.grid.2x2").tag("Icons")
+                                    Label("List", systemImage: "list.bullet").tag("List")
+                                }
+                                Divider()
                                 Picker("Sort By", selection: $sortBy) {
                                     Label("Name", systemImage: "textformat").tag("Name")
                                     Label("Date", systemImage: "calendar").tag("Date")
@@ -180,7 +189,6 @@ struct FileBrowserSheet: View {
                         .glassEffect(.regular, in: .capsule)
                     }
 
-                    // Search icon — separate button, same line
                     Button {
                         withAnimation { isSearching = true }
                     } label: {
@@ -196,10 +204,9 @@ struct FileBrowserSheet: View {
         .padding(.horizontal, 16)
         .padding(.top, 14)
         .padding(.bottom, 6)
-        .animation(.easeInOut(duration: 0.2), value: isExpanded)
     }
 
-    // MARK: - Bottom Tab Bar (glass pill)
+    // MARK: - Bottom Tab Bar
 
     var bottomTabBar: some View {
         GlassEffectContainer(spacing: 0) {
@@ -220,10 +227,8 @@ struct FileBrowserSheet: View {
             withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tag }
         } label: {
             VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.body)
-                Text(title)
-                    .font(.caption2)
+                Image(systemName: icon).font(.body)
+                Text(title).font(.caption2)
             }
             .foregroundColor(selectedTab == tag ? .accentColor : .secondary)
             .frame(maxWidth: .infinity)
@@ -234,29 +239,68 @@ struct FileBrowserSheet: View {
     // MARK: - Tab Content
 
     var scriptsTab: some View {
-        List {
-            ForEach(filteredScripts) { file in
-                Button { openFile(file) } label: {
-                    HStack {
-                        Image(systemName: "doc.text")
-                        Text(file.name)
-                        Spacer()
-                        if file.path == app.currentFile {
-                            Image(systemName: "checkmark").foregroundColor(.accentColor)
+        Group {
+            if viewMode == "Icons" {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                        ForEach(filteredScripts) { file in
+                            Button { openFile(file) } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "doc.text.fill")
+                                        .font(.system(size: 36))
+                                        .foregroundColor(.accentColor)
+                                        .frame(height: 60)
+                                    Text(file.name)
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(10)
+                                .background(
+                                    file.path == app.currentFile
+                                        ? Color.accentColor.opacity(0.1)
+                                        : Color.clear
+                                )
+                                .cornerRadius(10)
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) { fileToDelete = file } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                         }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
                 }
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) { fileToDelete = file } label: {
-                        Label("Delete", systemImage: "trash")
+            } else {
+                List {
+                    ForEach(filteredScripts) { file in
+                        Button { openFile(file) } label: {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                Text(file.name)
+                                Spacer()
+                                if file.path == app.currentFile {
+                                    Image(systemName: "checkmark").foregroundColor(.accentColor)
+                                }
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) { fileToDelete = file } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                    if filteredScripts.isEmpty {
+                        emptyLabel(searchText.isEmpty ? "No scripts yet" : "No matches")
                     }
                 }
-            }
-            if filteredScripts.isEmpty {
-                emptyLabel(searchText.isEmpty ? "No scripts yet" : "No matches")
+                .listStyle(.plain)
             }
         }
-        .listStyle(.plain)
         .confirmationDialog("Delete script?", isPresented: Binding(
             get: { fileToDelete != nil }, set: { if !$0 { fileToDelete = nil } }
         ), titleVisibility: .visible) {
@@ -274,19 +318,13 @@ struct FileBrowserSheet: View {
                 HStack {
                     Circle().fill(Color.red).frame(width: 8, height: 8)
                     Text("Recording in progress...")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.red)
+                        .font(.subheadline.weight(.medium)).foregroundColor(.red)
                     Spacer()
-                    Button {
-                        app.toggleRecording()
-                    } label: {
-                        Text("Stop")
-                            .font(.caption.weight(.semibold))
+                    Button { app.toggleRecording() } label: {
+                        Text("Stop").font(.caption.weight(.semibold))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.red)
-                            .clipShape(Capsule())
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(Color.red).clipShape(Capsule())
                     }
                 }
             }
@@ -346,7 +384,7 @@ struct FileBrowserSheet: View {
         .listStyle(.plain)
     }
 
-    // MARK: - Filtered Lists
+    // MARK: - Helpers
 
     private var filteredScripts: [SCFileManager.SCFile] {
         let scripts = fileManager.files.filter { !$0.isExample }
@@ -366,12 +404,9 @@ struct FileBrowserSheet: View {
     }
 
     private func emptyLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.subheadline).foregroundColor(.secondary)
+        Text(text).font(.subheadline).foregroundColor(.secondary)
             .frame(maxWidth: .infinity).padding(.vertical, 20)
     }
-
-    // MARK: - Actions
 
     private func openFile(_ file: SCFileManager.SCFile) {
         if let content = fileManager.loadFile(file) {
