@@ -10,6 +10,9 @@ struct FileBrowserView: View {
     @State private var showTemplates = false
     @State private var selectedRecording: SCFileManager.Recording? = nil
     @State private var selectedTab = 0  // 0=Scripts, 1=Recordings, 2=Examples
+    @State private var searchText = ""
+    @State private var fileToDelete: SCFileManager.SCFile? = nil
+    @State private var recordingToDelete: SCFileManager.Recording? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,13 +22,32 @@ struct FileBrowserView: View {
 
             // Segmented control
             Picker("", selection: $selectedTab) {
-                Text("Scripts").tag(0)
-                Text("Recordings").tag(1)
-                Text("Examples").tag(2)
+                Text("Scripts (\(fileManager.files.filter { !$0.isExample }.count))").tag(0)
+                Text("Recordings (\(fileManager.recordings.count))").tag(1)
+                Text("Examples (\(fileManager.files.filter { $0.isExample }.count))").tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+
+            // Search bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Search", text: $searchText)
+                    .textFieldStyle(.plain)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(8)
+            .background(Color(.tertiarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 4)
 
             // Tab content
             switch selectedTab {
@@ -78,9 +100,15 @@ struct FileBrowserView: View {
 
     // MARK: - Scripts Tab
 
+    private var filteredScripts: [SCFileManager.SCFile] {
+        let scripts = fileManager.files.filter { !$0.isExample }
+        if searchText.isEmpty { return scripts }
+        return scripts.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     var scriptsTab: some View {
         List {
-            ForEach(fileManager.files.filter { !$0.isExample }) { file in
+            ForEach(filteredScripts) { file in
                 Button {
                     openFile(file)
                 } label: {
@@ -96,15 +124,17 @@ struct FileBrowserView: View {
                 }
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
-                        let _ = fileManager.deleteFile(file)
+                        fileToDelete = file
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
                 }
             }
 
-            if fileManager.files.filter({ !$0.isExample }).isEmpty {
-                Text("No scripts yet.\nTap + to create one or use a template.")
+            if filteredScripts.isEmpty {
+                Text(searchText.isEmpty
+                    ? "No scripts yet.\nTap + to create one or use a template."
+                    : "No matching scripts.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -112,21 +142,39 @@ struct FileBrowserView: View {
                     .padding(.vertical, 20)
             }
         }
+        .confirmationDialog("Delete this script?", isPresented: Binding(
+            get: { fileToDelete != nil },
+            set: { if !$0 { fileToDelete = nil } }
+        ), titleVisibility: .visible) {
+            if let file = fileToDelete {
+                Button("Delete \(file.name)", role: .destructive) {
+                    let _ = fileManager.deleteFile(file)
+                    fileToDelete = nil
+                }
+            }
+        }
     }
 
     // MARK: - Recordings Tab
 
+    private var filteredRecordings: [SCFileManager.Recording] {
+        if searchText.isEmpty { return fileManager.recordings }
+        return fileManager.recordings.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     var recordingsTab: some View {
         List {
-            if fileManager.recordings.isEmpty {
-                Text("No recordings yet.\nTap the record button in the editor to start.")
+            if filteredRecordings.isEmpty {
+                Text(searchText.isEmpty
+                    ? "No recordings yet.\nTap the record button in the editor to start."
+                    : "No matching recordings.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
             } else {
-                ForEach(fileManager.recordings) { rec in
+                ForEach(filteredRecordings) { rec in
                     Button {
                         selectedRecording = rec
                     } label: {
@@ -151,7 +199,7 @@ struct FileBrowserView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
-                            let _ = fileManager.deleteRecording(rec)
+                            recordingToDelete = rec
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -163,13 +211,30 @@ struct FileBrowserView: View {
                 }
             }
         }
+        .confirmationDialog("Delete this recording?", isPresented: Binding(
+            get: { recordingToDelete != nil },
+            set: { if !$0 { recordingToDelete = nil } }
+        ), titleVisibility: .visible) {
+            if let rec = recordingToDelete {
+                Button("Delete \(rec.name)", role: .destructive) {
+                    let _ = fileManager.deleteRecording(rec)
+                    recordingToDelete = nil
+                }
+            }
+        }
     }
 
     // MARK: - Examples Tab
 
+    private var filteredExamples: [SCFileManager.SCFile] {
+        let examples = fileManager.files.filter { $0.isExample }
+        if searchText.isEmpty { return examples }
+        return examples.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
     var examplesTab: some View {
         List {
-            ForEach(fileManager.files.filter { $0.isExample }) { file in
+            ForEach(filteredExamples) { file in
                 Button {
                     openFile(file)
                 } label: {
@@ -229,8 +294,10 @@ struct FileBrowserView: View {
                 }
 
                 Button {
-                    let file = fileManager.createFile(name: "Untitled-\(Int(Date().timeIntervalSince1970)).scd")
-                    if let file = file {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "MMdd-HHmm"
+                    let name = "sketch-\(formatter.string(from: Date())).scd"
+                    if let file = fileManager.createFile(name: name) {
                         openFile(file)
                         app.isEditing = true
                     }
