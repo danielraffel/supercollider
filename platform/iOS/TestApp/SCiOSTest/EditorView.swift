@@ -37,38 +37,6 @@ struct EditorView: View {
                     app.scrubValue = Double(value) ?? 0
                     app.scrubPopupRect = rect
                     app.isScrubbing = true
-                },
-                onScrubUpdate: { delta in
-                    guard let original = Double(app.scrubOriginalValue) else { return }
-                    // Determine step size based on value type
-                    let step: Double
-                    if original == floor(original) && original > 1 {
-                        step = 1.0  // Integer: 1 per point
-                    } else if original >= 0 && original <= 1 {
-                        step = 0.001  // 0-1 range: fine
-                    } else {
-                        step = 0.1  // Float: medium
-                    }
-                    let newValue = original + (delta * step)
-                    app.scrubValue = newValue
-
-                    // Update the code text with the new value
-                    if let range = app.scrubRange {
-                        let nsText = app.codeText as NSString
-                        let formatted: String
-                        if original == floor(original) && original > 1 {
-                            formatted = "\(Int(newValue))"
-                        } else {
-                            formatted = String(format: "%.3g", newValue)
-                        }
-                        let newText = nsText.replacingCharacters(in: range, with: formatted)
-                        // Update range for new string length
-                        app.scrubRange = NSRange(location: range.location, length: formatted.count)
-                        app.codeText = newText
-                    }
-                },
-                onScrubEnd: {
-                    app.isScrubbing = false
                 }
             )
             .layoutPriority(1)
@@ -160,10 +128,11 @@ struct EditorView: View {
     // MARK: - Value Scrub UI
 
     var scrubPopup: some View {
-        VStack(spacing: 6) {
+        // Centered popup with slider
+        VStack(spacing: 12) {
             // Current value
             Text(formattedScrubValue)
-                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.orange)
 
             // Original value
@@ -171,21 +140,60 @@ struct EditorView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            // Speed hint
-            HStack(spacing: 16) {
-                Text("1-finger: fine")
+            // Slider for adjusting
+            let original = Double(app.scrubOriginalValue) ?? 0
+            let range = scrubRange(for: original)
+            Slider(value: $app.scrubValue, in: range) { editing in
+                if editing {
+                    // Update code live as slider moves
+                    updateCodeWithScrubValue()
+                }
+            }
+            .tint(.orange)
+            .onChange(of: app.scrubValue) { _ in
+                updateCodeWithScrubValue()
+            }
+
+            // Range labels
+            HStack {
+                Text(formatNumber(range.lowerBound))
                     .font(.caption2)
-                    .foregroundColor(.white.opacity(0.4))
-                Text("2-finger: coarse")
+                    .foregroundColor(.white.opacity(0.3))
+                Spacer()
+                Text(formatNumber(range.upperBound))
                     .font(.caption2)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+
+            // +/- fine adjustment buttons
+            HStack(spacing: 20) {
+                Button {
+                    let step = fineStep(for: original)
+                    app.scrubValue -= step
+                    updateCodeWithScrubValue()
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                }
+
+                Button {
+                    let step = fineStep(for: original)
+                    app.scrubValue += step
+                    updateCodeWithScrubValue()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                }
             }
         }
-        .padding(16)
+        .padding(20)
+        .frame(width: 280)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.systemGray5))
-                .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
+                .shadow(color: .black.opacity(0.5), radius: 16, y: 6)
         )
         .transition(.scale.combined(with: .opacity))
     }
@@ -193,7 +201,6 @@ struct EditorView: View {
     var scrubBar: some View {
         HStack(spacing: 12) {
             Button {
-                // Apply: re-evaluate the enclosing block
                 app.isScrubbing = false
                 app.evaluateSelection()
                 app.scrubRange = nil
@@ -213,7 +220,6 @@ struct EditorView: View {
             }
 
             Button {
-                // Revert to original value
                 if let range = app.scrubRange {
                     let nsText = app.codeText as NSString
                     app.codeText = nsText.replacingCharacters(in: range, with: app.scrubOriginalValue)
@@ -235,13 +241,51 @@ struct EditorView: View {
         .background(Color(.systemBackground).opacity(0.95))
     }
 
+    private func updateCodeWithScrubValue() {
+        guard let range = app.scrubRange else { return }
+        let nsText = app.codeText as NSString
+        let formatted = formatScrubNumber(app.scrubValue, original: Double(app.scrubOriginalValue) ?? 0)
+        let newText = nsText.replacingCharacters(in: range, with: formatted)
+        app.scrubRange = NSRange(location: range.location, length: formatted.count)
+        app.codeText = newText
+    }
+
     private var formattedScrubValue: String {
-        let original = Double(app.scrubOriginalValue) ?? 0
+        formatScrubNumber(app.scrubValue, original: Double(app.scrubOriginalValue) ?? 0)
+    }
+
+    private func formatScrubNumber(_ value: Double, original: Double) -> String {
         if original == floor(original) && abs(original) > 1 {
-            return "\(Int(app.scrubValue))"
+            return "\(Int(value))"
+        } else if abs(original) <= 1 {
+            return String(format: "%.2f", value)
         } else {
-            return String(format: "%.3g", app.scrubValue)
+            return String(format: "%.1f", value)
         }
+    }
+
+    private func formatNumber(_ value: Double) -> String {
+        if value == floor(value) { return "\(Int(value))" }
+        return String(format: "%.1f", value)
+    }
+
+    private func scrubRange(for original: Double) -> ClosedRange<Double> {
+        if original == floor(original) && abs(original) > 1 {
+            // Integer (likely frequency)
+            return 20...20000
+        } else if original >= 0 && original <= 1 {
+            // Amplitude / mix
+            return 0...1
+        } else {
+            // General float
+            return 0...max(abs(original) * 4, 10)
+        }
+    }
+
+    private func fineStep(for original: Double) -> Double {
+        if original == floor(original) && abs(original) > 1 { return 1 }
+        if original >= 0 && original <= 1 { return 0.01 }
+        return 0.1
     }
 
     // MARK: - Boot Overlay

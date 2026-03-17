@@ -67,9 +67,30 @@ class SCCodeTextView: UITextView {
     }
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
-        if gesture.state == .ended && !isEditable {
-            scDoubleTapCallback?()
+        guard gesture.state == .ended && !isEditable else { return }
+
+        let location = gesture.location(in: self)
+        let touchPosition = closestPosition(to: location) ?? beginningOfDocument
+        let charIndex = offset(from: beginningOfDocument, to: touchPosition)
+
+        // Check if tapped on a number — start value scrub
+        if let numRange = findNumberAt(charIndex) {
+            let nsText = text as NSString
+            let valueStr = nsText.substring(with: numRange)
+            let rect = rectForRange(numRange)
+            let screenRect = convert(rect, to: window)
+
+            // Highlight the number
+            let highlight = NSMutableAttributedString(attributedString: attributedText)
+            highlight.addAttribute(.backgroundColor, value: UIColor.orange.withAlphaComponent(0.3), range: numRange)
+            attributedText = highlight
+
+            scValueScrubStart?(numRange, valueStr, screenRect)
+            return
         }
+
+        // Not a number — enter Edit mode
+        scDoubleTapCallback?()
     }
 
     // MARK: - Value Scrub
@@ -187,18 +208,6 @@ class SCCodeTextView: UITextView {
 
         switch gesture.state {
         case .began:
-            // In read mode, try value scrub on numbers first
-            if !isEditable {
-                let touchPosition = closestPosition(to: location) ?? beginningOfDocument
-                let charIndex = offset(from: beginningOfDocument, to: touchPosition)
-                if findNumberAt(charIndex) != nil {
-                    if tryStartScrub(at: location) {
-                        scrubStartY = location.y
-                        return  // Don't do block selection
-                    }
-                }
-            }
-
             longPressActive = true
 
             // Save content offset so UITextView's selectedRange assignment can't scroll the view
@@ -225,13 +234,6 @@ class SCCodeTextView: UITextView {
             }
 
         case .changed:
-            // Handle scrub drag
-            if scrubActive {
-                let delta = Double(scrubStartY - location.y)
-                scValueScrubUpdate?(delta)
-                return
-            }
-
             guard longPressActive, let anchor = longPressAnchorLineRange else { return }
 
             let savedOffset = contentOffset
@@ -249,13 +251,6 @@ class SCCodeTextView: UITextView {
             setSelectedRangeWithoutScrolling(NSRange(location: start, length: end - start), savedOffset: savedOffset)
 
         case .ended, .cancelled, .failed:
-            if scrubActive {
-                scrubActive = false
-                scValueScrubEnd?()
-                scrubRange = nil
-                return
-            }
-
             longPressActive = false
             longPressAnchorLineRange = nil
             // Reset horizontal scroll to prevent content sliding off screen
