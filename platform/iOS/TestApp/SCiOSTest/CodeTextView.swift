@@ -11,6 +11,7 @@ var scSnapshotSelection: (() -> String)?
 /// Closure called on double-tap (to enter Edit mode from Read mode)
 var scDoubleTapCallback: (() -> Void)?
 /// Value scrub callbacks
+var scSelectionRangeChanged: ((NSRange) -> Void)?  // Called when our gesture sets a selection range
 var scValueScrubStart: ((NSRange, String, CGRect) -> Void)?  // (range, originalValue, rect)
 var scValueScrubUpdate: ((Double) -> Void)?  // delta from drag
 var scValueScrubEnd: (() -> Void)?
@@ -313,12 +314,14 @@ class SCCodeTextView: UITextView {
                 }
                 reassertSelection(4)
 
-                // Update the selection callback
+                // Update the selection callbacks
                 if let text = self.text {
                     let nsText = text as NSString
                     if finalSelection.location + finalSelection.length <= nsText.length {
                         let sel = nsText.substring(with: finalSelection)
                         scGetSelectedText = { sel }
+                        // Also update the range callback so liveApply() can re-read from codeText
+                        scSelectionRangeChanged?(finalSelection)
                     }
                 }
             }
@@ -758,6 +761,7 @@ struct CodeTextView: UIViewRepresentable {
             textView?.snapshotSelectionForPlay() ?? ""
         }
         scDoubleTapCallback = onDoubleTap
+        scSelectionRangeChanged = onSelectionRangeChanged
         scValueScrubStart = onScrubStart
         scValueScrubUpdate = onScrubUpdate
         scValueScrubEnd = onScrubEnd

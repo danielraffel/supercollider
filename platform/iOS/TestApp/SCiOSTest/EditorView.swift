@@ -438,9 +438,22 @@ struct EditorView: View {
         guard let range = app.scrubRange else { return }
         let nsText = app.codeText as NSString
         let formatted = formatScrubNumber(app.scrubValue, original: Double(app.scrubOriginalValue) ?? 0)
+        let lengthDelta = formatted.count - range.length
         let newText = nsText.replacingCharacters(in: range, with: formatted)
         app.scrubRange = NSRange(location: range.location, length: formatted.count)
         app.codeText = newText
+
+        // Adjust lastSelectionRange if the number length changed — the scrubbed number
+        // is inside the selection, so the selection end shifts by the same delta.
+        if lengthDelta != 0, let selRange = app.lastSelectionRange {
+            if range.location >= selRange.location &&
+               range.location < selRange.location + selRange.length {
+                app.lastSelectionRange = NSRange(
+                    location: selRange.location,
+                    length: selRange.length + lengthDelta
+                )
+            }
+        }
     }
 
     private var formattedScrubValue: String {
