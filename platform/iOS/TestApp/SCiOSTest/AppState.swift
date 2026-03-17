@@ -20,6 +20,7 @@ class AppState: ObservableObject {
     @Published var showPost: Bool = false
     @Published var showSettings: Bool = false
     @Published var showEditor: Bool = false
+    @Published var showTemplates: Bool = false
     @Published var postOutput = ""
     @Published var toastMessage: String? = nil
     @Published var toastIsError: Bool = false

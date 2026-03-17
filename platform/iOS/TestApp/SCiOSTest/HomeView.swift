@@ -4,7 +4,7 @@ import SwiftUI
 /// so it's fully visible when the file sheet is at medium height.
 struct HomeView: View {
     @EnvironmentObject var app: AppState
-    @State private var showTemplates = false
+    // Templates use app.showTemplates (global overlay)
     @StateObject private var fileManager = SCFileManager()
 
     var body: some View {
@@ -21,6 +21,19 @@ struct HomeView: View {
 
             // Hero content — packed into the top half
             VStack(spacing: 14) {
+                // Settings gear (top-left)
+                HStack {
+                    Button { app.showSettings = true } label: {
+                        Image(systemName: "gearshape")
+                            .font(.body)
+                            .foregroundColor(.white.opacity(0.7))
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                }
+
                 Spacer(minLength: 0)
 
                 Text("SuperCollider")
@@ -33,7 +46,7 @@ struct HomeView: View {
                     .padding(.bottom, 4)
 
                 Button {
-                    showTemplates = true
+                    withAnimation { app.showTemplates = true }
                 } label: {
                     Text("Choose a Template")
                         .font(.body.weight(.semibold))
@@ -75,19 +88,6 @@ struct HomeView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .padding(.bottom, UIScreen.main.bounds.height * 0.48)
         }
-        .sheet(isPresented: $showTemplates) {
-            TemplatePickerView(isPresented: $showTemplates) { filename, content in
-                if let file = fileManager.createFile(name: filename) {
-                    let _ = fileManager.saveFile(file, content: content)
-                    app.codeText = content
-                    app.lastSavedText = content
-                    app.currentFile = file.path
-                    app.hasUnsavedChanges = false
-                    app.isEditing = true
-                    app.showEditor = true
-                }
-            }
-            .environmentObject(app)
-        }
+        // Templates handled by app.showTemplates → TemplateCoverView in ContentView
     }
 }

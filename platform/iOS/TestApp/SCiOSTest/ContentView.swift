@@ -31,6 +31,15 @@ struct ContentView: View {
             SettingsView()
                 .environmentObject(app)
         }
+        // Template picker floats on top of everything
+        .overlay {
+            if app.showTemplates {
+                TemplateCoverView()
+                    .environmentObject(app)
+                    .transition(.opacity)
+                    .zIndex(100)
+            }
+        }
     }
 }
 
@@ -48,7 +57,7 @@ struct FileBrowserSheet: View {
     @State private var selectedRecording: SCFileManager.Recording? = nil
     @State private var fileToDelete: SCFileManager.SCFile? = nil
     @State private var recordingToDelete: SCFileManager.Recording? = nil
-    @State private var showTemplates = false
+    // Templates use app.showTemplates (global overlay)
 
     @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
     @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs = true
@@ -89,61 +98,23 @@ struct FileBrowserSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .fullScreenCover(isPresented: $showTemplates) {
-            TemplatePickerView(isPresented: $showTemplates) { filename, content in
-                if let file = fileManager.createFile(name: filename) {
-                    let _ = fileManager.saveFile(file, content: content)
-                    openFile(file)
-                    app.isEditing = true
-                }
-            }
-            .environmentObject(app)
-        }
+        // Templates handled by app.showTemplates → TemplateCoverView overlay in ContentView
         .sheet(item: $selectedRecording) { rec in
             RecordingPlayerView(recording: rec)
                 .presentationDetents([.medium])
         }
     }
 
-    // MARK: - Top Bar (... menu + search)
+    @State private var sortBy = "Date"
+
+    // MARK: - Top Bar (Liquid Glass pill toolbar)
 
     var topBar: some View {
         HStack(spacing: 10) {
-            // ... menu (like Pages)
-            Menu {
-                Button { showImporter = true } label: {
-                    Label("Import File", systemImage: "square.and.arrow.down")
-                }
-                Button {
-                    newFileName = ""
-                    showNewFileAlert = true
-                } label: {
-                    Label("New Script", systemImage: "doc.badge.plus")
-                }
-                Button { showTemplates = true } label: {
-                    Label("From Template", systemImage: "doc.on.doc")
-                }
-                Divider()
-                Menu("Sort By") {
-                    Button { } label: { Label("Name", systemImage: "textformat") }
-                    Button { } label: { Label("Date", systemImage: "calendar") }
-                    Button { } label: { Label("Size", systemImage: "arrow.up.arrow.down") }
-                }
-                Divider()
-                Button { app.showSettings = true } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body.weight(.medium))
-                    .foregroundColor(.primary)
-                    .frame(width: 36, height: 36)
-                    .background(Color(.systemGray5))
-                    .clipShape(Circle())
-            }
+            Spacer()
 
-            // Search bar (expandable like Pages)
             if isSearching {
+                // Expanded search bar
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
@@ -157,31 +128,73 @@ struct FileBrowserSheet: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .padding(8)
-                .background(Color(.systemGray5))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(10)
+                .glassEffect(.regular, in: .capsule)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                Spacer()
-            }
+                // Pill toolbar: [+] [...] grouped, then [search] separate
+                GlassEffectContainer {
+                    HStack(spacing: 0) {
+                        // + button (new file = Start Coding)
+                        Button {
+                            let formatter = DateFormatter()
+                            formatter.dateFormat = "MMdd-HHmm"
+                            let name = "sketch-\(formatter.string(from: Date())).scd"
+                            if let file = fileManager.createFile(name: name) {
+                                openFile(file)
+                                app.isEditing = true
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.body.weight(.medium))
+                                .frame(width: 40, height: 36)
+                        }
 
-            // Search button (when not searching)
-            if !isSearching {
-                Button {
-                    withAnimation { isSearching = true }
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.body.weight(.medium))
-                        .foregroundColor(.primary)
-                        .frame(width: 36, height: 36)
-                        .background(Color(.systemGray5))
-                        .clipShape(Circle())
+                        // ... menu
+                        Menu {
+                            Button { showImporter = true } label: {
+                                Label("Import File", systemImage: "square.and.arrow.down")
+                            }
+                            Button { withAnimation { app.showTemplates = true } } label: {
+                                Label("From Template", systemImage: "doc.on.doc")
+                            }
+                            Button {
+                                newFileName = ""
+                                showNewFileAlert = true
+                            } label: {
+                                Label("New Script", systemImage: "doc.badge.plus")
+                            }
+                            Divider()
+                            Picker("Sort By", selection: $sortBy) {
+                                Label("Name", systemImage: "textformat").tag("Name")
+                                Label("Date", systemImage: "calendar").tag("Date")
+                                Label("Size", systemImage: "arrow.up.arrow.down").tag("Size")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.body.weight(.medium))
+                                .frame(width: 40, height: 36)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                    .glassEffect(.regular, in: .capsule)
+
+                    // Search icon (separate pill)
+                    Button {
+                        withAnimation { isSearching = true }
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.body.weight(.medium))
+                            .foregroundColor(.primary)
+                            .frame(width: 40, height: 36)
+                    }
+                    .glassEffect(.regular, in: .capsule)
                 }
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
     // MARK: - Bottom Tab Bar
