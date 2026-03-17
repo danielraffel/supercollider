@@ -8,6 +8,7 @@ struct FileBrowserView: View {
     @State private var newFileName = ""
     @State private var showImporter = false
     @State private var showTemplates = false
+    @State private var selectedRecording: SCFileManager.Recording? = nil
 
     var body: some View {
         List {
@@ -39,17 +40,24 @@ struct FileBrowserView: View {
             if !fileManager.recordings.isEmpty {
                 Section("Recordings") {
                     ForEach(fileManager.recordings) { rec in
-                        HStack {
-                            Image(systemName: "waveform")
-                                .foregroundColor(.red)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(rec.name)
-                                    .lineLimit(1)
-                                Text(rec.size)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                        Button {
+                            selectedRecording = rec
+                        } label: {
+                            HStack {
+                                Image(systemName: "waveform")
+                                    .foregroundColor(.red)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(rec.name)
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                    Text(rec.size)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "play.circle")
+                                    .foregroundColor(.orange)
                             }
-                            Spacer()
                         }
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) {
@@ -63,10 +71,6 @@ struct FileBrowserView: View {
                             .tint(.blue)
                         }
                     }
-
-                    Text("Recordings save to Documents/Recordings/\nVisible in Files app > On My iPhone > SCiOSTest")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
                 }
             }
 
@@ -136,13 +140,15 @@ struct FileBrowserView: View {
         .sheet(isPresented: $showTemplates) {
             TemplatePickerView(isPresented: $showTemplates) { filename, content in
                 if let file = fileManager.createFile(name: filename) {
-                    // Write template content
                     let _ = fileManager.saveFile(file, content: content)
                     openFile(file)
-                    app.isEditing = true  // Open in Edit mode for new templates
+                    app.isEditing = true
                 }
             }
             .environmentObject(app)
+        }
+        .sheet(item: $selectedRecording) { rec in
+            RecordingPlayerView(recording: rec)
         }
     }
 
