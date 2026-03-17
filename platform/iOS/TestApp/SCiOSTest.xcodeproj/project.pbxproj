@@ -29,6 +29,7 @@
 		CF9C61FF71022E71481CB9FC /* CoreMIDI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9412CF449E4BCB559249716A /* CoreMIDI.framework */; };
 		D0A12AFDFEEB2BC08A71E535 /* SCiOSTestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DACC566983F48303FAB7543 /* SCiOSTestApp.swift */; };
 		EEAA527370194FD60C7E0E68 /* PostOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9F978BE4C17EDD6AAB1F8E /* PostOverlayView.swift */; };
+		F558B237EBA9F0D0F334E29F /* TemplateCoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 921EF9B0DAE4DBC08D055B27 /* TemplateCoverView.swift */; };
 		F62F757059AC2A040123F427 /* SCClassLibrary in Resources */ = {isa = PBXBuildFile; fileRef = 7057BB04ADAFDBCAF23919A3 /* SCClassLibrary */; };
 		FDD126D6342A8ADD3DC98056 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6F0DAA62E60D1FB7C9191A7B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -50,6 +51,7 @@
 		823E9F9F10424ECB103738E0 /* SclangEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SclangEngine.swift; sourceTree = "<group>"; };
 		878EC535858C0D19DFC11A85 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		8B9838052066B867AFF66643 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		921EF9B0DAE4DBC08D055B27 /* TemplateCoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateCoverView.swift; sourceTree = "<group>"; };
 		9412CF449E4BCB559249716A /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = System/Library/Frameworks/CoreMIDI.framework; sourceTree = SDKROOT; };
 		A32C098607741C0012D88B9D /* SC_iOSLibSynth-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "SC_iOSLibSynth-Bridging-Header.h"; sourceTree = "<group>"; };
 		AC9F978BE4C17EDD6AAB1F8E /* PostOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostOverlayView.swift; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 				823E9F9F10424ECB103738E0 /* SclangEngine.swift */,
 				B1EDDC022D1C74F62FD785BB /* SCSyntaxHighlighter.swift */,
 				8B9838052066B867AFF66643 /* SettingsView.swift */,
+				921EF9B0DAE4DBC08D055B27 /* TemplateCoverView.swift */,
 				CA8FB2E956D9CA1FB2DE1BF4 /* TemplatePickerView.swift */,
 			);
 			path = SCiOSTest;
@@ -222,6 +225,7 @@
 				D0A12AFDFEEB2BC08A71E535 /* SCiOSTestApp.swift in Sources */,
 				56F26DDAB4B2115341E895BF /* SclangEngine.swift in Sources */,
 				0E4A8AF50D9AB51BF98EF97F /* SettingsView.swift in Sources */,
+				F558B237EBA9F0D0F334E29F /* TemplateCoverView.swift in Sources */,
 				44FB69B79B989F58D5723D0A /* TemplatePickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
