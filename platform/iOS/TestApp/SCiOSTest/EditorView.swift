@@ -25,9 +25,52 @@ struct EditorView: View {
         .overlay(alignment: .bottom) {
             toastView
         }
+        // Keyboard shortcut: Cmd+E toggles Edit mode
+        // Hidden keyboard shortcuts
+        .background(
+            Group {
+                // Cmd+E: toggle Edit mode
+                Button("") {
+                    app.isEditing.toggle()
+                    if !app.isEditing {
+                        app.autosave()
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                }
+                .keyboardShortcut("e", modifiers: .command)
+
+                // Cmd+S: save current file
+                Button("") {
+                    saveCurrentFile()
+                }
+                .keyboardShortcut("s", modifiers: .command)
+            }
+            .hidden()
+        )
         .onAppear {
             if alwaysEditMode { app.isEditing = true }
         }
+    }
+
+    private func saveCurrentFile() {
+        guard let path = app.currentFile else {
+            app.showToast("No file to save", isError: true)
+            return
+        }
+        do {
+            try app.codeText.write(toFile: path, atomically: true, encoding: .utf8)
+            app.autosave()
+            app.showToast("Saved", isError: false)
+        } catch {
+            app.showToast("Save failed", isError: true)
+        }
+    }
+
+    var currentFileName: String {
+        if let file = app.currentFile {
+            return (file as NSString).lastPathComponent
+        }
+        return "Untitled"
     }
 
     // MARK: - Toast
@@ -76,12 +119,10 @@ struct EditorView: View {
             Spacer()
 
             // Filename
-            if let file = app.currentFile {
-                Text((file as NSString).lastPathComponent)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-            }
+            Text(currentFileName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
+                .lineLimit(1)
 
             Spacer()
 
