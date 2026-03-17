@@ -251,8 +251,29 @@ class SCCodeTextView: UITextView {
             setSelectedRangeWithoutScrolling(NSRange(location: start, length: end - start), savedOffset: savedOffset)
 
         case .ended, .cancelled, .failed:
+            // Save selection before clearing long-press state
+            let finalSelection = selectedRange
             longPressActive = false
             longPressAnchorLineRange = nil
+
+            // In read mode, UITextView clears selection on gesture end.
+            // Re-assert it after a brief delay.
+            if !isEditable && finalSelection.length > 0 {
+                let savedOffset = contentOffset
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    self.setSelectedRangeWithoutScrolling(finalSelection, savedOffset: savedOffset)
+                    // Also save to lastSelection callback
+                    if let text = self.text {
+                        let nsText = text as NSString
+                        if finalSelection.location + finalSelection.length <= nsText.length {
+                            let selectedText = nsText.substring(with: finalSelection)
+                            scGetSelectedText = { selectedText }
+                        }
+                    }
+                }
+            }
+
             // Reset horizontal scroll to prevent content sliding off screen
             if contentOffset.x != 0 {
                 CATransaction.begin()

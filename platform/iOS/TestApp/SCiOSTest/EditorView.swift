@@ -127,69 +127,120 @@ struct EditorView: View {
 
     // MARK: - Value Scrub UI
 
+    @State private var liveMode = false
+
     var scrubPopup: some View {
-        // Centered popup with slider
         VStack(spacing: 12) {
-            // Current value
+            // Value display
             Text(formattedScrubValue)
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.orange)
 
-            // Original value
             Text("was \(app.scrubOriginalValue)")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            // Slider for adjusting
+            // Slider
             let original = Double(app.scrubOriginalValue) ?? 0
             let range = scrubRange(for: original)
-            Slider(value: $app.scrubValue, in: range) { editing in
-                if editing {
-                    // Update code live as slider moves
+            Slider(value: $app.scrubValue, in: range)
+                .tint(.orange)
+                .onChange(of: app.scrubValue) { _ in
                     updateCodeWithScrubValue()
+                    if liveMode {
+                        liveApply()
+                    }
                 }
-            }
-            .tint(.orange)
-            .onChange(of: app.scrubValue) { _ in
-                updateCodeWithScrubValue()
-            }
 
             // Range labels
             HStack {
                 Text(formatNumber(range.lowerBound))
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.3))
+                    .font(.caption2).foregroundColor(.white.opacity(0.3))
                 Spacer()
                 Text(formatNumber(range.upperBound))
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.3))
+                    .font(.caption2).foregroundColor(.white.opacity(0.3))
             }
 
-            // +/- fine adjustment buttons
+            // +/- buttons
             HStack(spacing: 20) {
                 Button {
-                    let step = fineStep(for: original)
-                    app.scrubValue -= step
+                    app.scrubValue -= fineStep(for: original)
                     updateCodeWithScrubValue()
+                    if liveMode { liveApply() }
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
+                        .font(.title2).foregroundColor(.secondary)
                 }
-
                 Button {
-                    let step = fineStep(for: original)
-                    app.scrubValue += step
+                    app.scrubValue += fineStep(for: original)
                     updateCodeWithScrubValue()
+                    if liveMode { liveApply() }
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.title2)
+                        .font(.title2).foregroundColor(.secondary)
+                }
+            }
+
+            Divider()
+
+            // Action buttons
+            HStack(spacing: 10) {
+                // Live toggle
+                Button {
+                    liveMode.toggle()
+                    if liveMode { liveApply() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(liveMode ? Color.red : Color.gray)
+                            .frame(width: 8, height: 8)
+                        Text("Live")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .foregroundColor(liveMode ? .red : .secondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(liveMode ? Color.red.opacity(0.15) : Color(.systemGray5))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+
+                // Apply (stop + re-evaluate)
+                Button {
+                    app.isScrubbing = false
+                    liveMode = false
+                    app.stopAll()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        app.evaluateSelection()
+                    }
+                    app.scrubRange = nil
+                    app.showToast("Applied", isError: false)
+                } label: {
+                    Text("Apply")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.orange)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+
+                // Dismiss (keep change, no re-evaluate)
+                Button {
+                    app.isScrubbing = false
+                    liveMode = false
+                    app.scrubRange = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.subheadline.weight(.medium))
                         .foregroundColor(.secondary)
+                        .padding(10)
+                        .background(Color(.systemGray5))
+                        .clipShape(Circle())
                 }
             }
         }
         .padding(20)
-        .frame(width: 280)
+        .frame(width: 300)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.systemGray5))
@@ -198,52 +249,18 @@ struct EditorView: View {
         .transition(.scale.combined(with: .opacity))
     }
 
-    var scrubBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                app.isScrubbing = false
-                // Stop current sound, then re-evaluate with new value
-                // This prevents duplicate synths stacking
-                app.stopAll()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    app.evaluateSelection()
-                }
-                app.scrubRange = nil
-                app.showToast("Applied", isError: false)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "bolt.fill")
-                        .font(.caption)
-                    Text("Apply")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.orange)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-
-            Button {
-                if let range = app.scrubRange {
-                    let nsText = app.codeText as NSString
-                    app.codeText = nsText.replacingCharacters(in: range, with: app.scrubOriginalValue)
-                }
-                app.isScrubbing = false
-                app.scrubRange = nil
-            } label: {
-                Text("Revert")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-            }
+    /// Live apply: stop current synth and re-evaluate the block with new value.
+    /// Throttled to avoid flooding the server.
+    private func liveApply() {
+        app.stopAll()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            app.evaluateSelection()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(.systemBackground).opacity(0.95))
+    }
+
+    // scrubBar is no longer needed — buttons are inline in the popup
+    var scrubBar: some View {
+        EmptyView()
     }
 
     private func updateCodeWithScrubValue() {
