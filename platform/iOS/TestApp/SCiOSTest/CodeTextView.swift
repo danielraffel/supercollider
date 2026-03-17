@@ -18,10 +18,13 @@ var scValueScrubEnd: (() -> Void)?
 /// Custom UITextView subclass with SC-specific menu actions and long-press line selection
 class SCCodeTextView: UITextView {
 
-    /// When false (Read mode), keyboard is suppressed but selection still works
+    /// When true (Read mode), keyboard is suppressed and editing is blocked
     var readModeActive = false {
         didSet {
             if readModeActive != oldValue {
+                // Toggle isEditable to control UITextView's built-in interactions
+                // Our long-press gesture handles selection manually
+                isEditable = !readModeActive
                 reloadInputViews()
             }
         }
@@ -272,9 +275,30 @@ class SCCodeTextView: UITextView {
             setSelectedRangeWithoutScrolling(NSRange(location: start, length: end - start), savedOffset: savedOffset)
 
         case .ended, .cancelled, .failed:
+            let finalSelection = selectedRange
             longPressActive = false
             longPressAnchorLineRange = nil
-            // Selection persists because isEditable=true (editing blocked by delegate)
+
+            // In read mode (isEditable=false), UITextView clears selection.
+            // Re-assert it with double-async to fire after UITextView's cleanup.
+            if readModeActive && finalSelection.length > 0 {
+                let savedOffset = contentOffset
+                DispatchQueue.main.async { [weak self] in
+                    DispatchQueue.main.async {
+                        guard let self = self else { return }
+                        self.selectedRange = finalSelection
+                        self.setContentOffset(savedOffset, animated: false)
+                        // Update the selection callback
+                        if let text = self.text {
+                            let nsText = text as NSString
+                            if finalSelection.location + finalSelection.length <= nsText.length {
+                                let sel = nsText.substring(with: finalSelection)
+                                scGetSelectedText = { sel }
+                            }
+                        }
+                    }
+                }
+            }
 
             // Reset horizontal scroll to prevent content sliding off screen
             if contentOffset.x != 0 {
@@ -668,11 +692,7 @@ struct CodeTextView: UIViewRepresentable {
         context.coordinator.onEvaluate = onEvaluate
         context.coordinator.onSelectionChanged = onSelectionChanged
 
-        // Read/Edit mode: control whether text is editable
-        // Always keep isEditable=true so UITextView maintains selection.
-        // We block actual text changes in Read mode via shouldChangeTextIn delegate.
-        // Keyboard is suppressed in Read mode via inputView override.
-        textView.isEditable = true
+        // Read/Edit mode: readModeActive controls isEditable + keyboard
         textView.readModeActive = !isEditable
         context.coordinator.allowEditing = isEditable
 

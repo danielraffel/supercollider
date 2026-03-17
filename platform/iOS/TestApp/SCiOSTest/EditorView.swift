@@ -3,14 +3,24 @@ import SwiftUI
 /// Re-enables interactive back swipe when nav bar is hidden
 struct EnableSwipeBack: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        let vc = UIViewController()
+        let vc = SwipeBackVC()
+        return vc
+    }
+    func updateUIViewController(_ vc: UIViewController, context: Context) {
+        // Re-enable on every update in case nav controller changed
         DispatchQueue.main.async {
             vc.navigationController?.interactivePopGestureRecognizer?.isEnabled = true
             vc.navigationController?.interactivePopGestureRecognizer?.delegate = nil
         }
-        return vc
     }
-    func updateUIViewController(_ vc: UIViewController, context: Context) {}
+}
+
+class SwipeBackVC: UIViewController {
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = true
+        navigationController?.interactivePopGestureRecognizer?.delegate = nil
+    }
 }
 
 struct EditorView: View {
@@ -265,20 +275,7 @@ struct EditorView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
 
-                // Dismiss (keep change, stop live Ndef)
-                Button {
-                    app.isScrubbing = false
-                    stopLiveNdef()
-                    liveMode = false
-                    app.scrubRange = nil
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.secondary)
-                        .padding(10)
-                        .background(Color(.systemGray5))
-                        .clipShape(Circle())
-                }
+                // X button removed — tap background to dismiss
             }
         }
         .padding(20)
