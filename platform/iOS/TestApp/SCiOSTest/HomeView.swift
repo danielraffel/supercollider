@@ -21,19 +21,6 @@ struct HomeView: View {
 
             // Hero content — packed into the top half
             VStack(spacing: 14) {
-                // Settings gear
-                HStack {
-                    Button { app.showSettings = true } label: {
-                        Image(systemName: "gearshape")
-                            .font(.body)
-                            .foregroundColor(.white.opacity(0.7))
-                            .frame(width: 36, height: 36)
-                            .background(Color.white.opacity(0.1))
-                            .clipShape(Circle())
-                    }
-                    Spacer()
-                }
-
                 Spacer(minLength: 0)
 
                 Text("SuperCollider")

@@ -21,6 +21,7 @@ struct ContentView: View {
                 .presentationDragIndicator(.hidden)
                 .interactiveDismissDisabled(true)
                 .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .presentationBackground(Color(.systemBackground).opacity(0.95))
         }
         .sheet(isPresented: $app.showPost) {
             PostOverlayView()
@@ -38,7 +39,9 @@ struct ContentView: View {
 struct FileBrowserSheet: View {
     @EnvironmentObject var app: AppState
     @StateObject private var fileManager = SCFileManager()
+    @State private var selectedTab = 0  // 0=Scripts, 1=Recordings, 2=Examples
     @State private var searchText = ""
+    @State private var isSearching = false
     @State private var showImporter = false
     @State private var showNewFileAlert = false
     @State private var newFileName = ""
@@ -51,50 +54,23 @@ struct FileBrowserSheet: View {
     @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs = true
 
     var body: some View {
-        TabView {
-            Tab("Scripts", systemImage: "doc.text") {
-                scriptsTab
-            }
+        VStack(spacing: 0) {
+            // Top bar: ... menu and search (like Pages)
+            topBar
 
-            Tab("Recordings", systemImage: "waveform") {
-                recordingsTab
-            }
-
-            Tab("Examples", systemImage: "book.closed") {
-                examplesTab
-            }
-
-            Tab("Search", systemImage: "magnifyingglass", role: .search) {
-                NavigationStack {
-                    searchTab
+            // File list content
+            Group {
+                switch selectedTab {
+                case 0: scriptsTab
+                case 1: recordingsTab
+                case 2: examplesTab
+                default: scriptsTab
                 }
             }
-        }
-        .searchable(text: $searchText, prompt: "Search files")
-        .tabViewBottomAccessory {
-            // ... menu as bottom accessory
-            HStack {
-                Spacer()
-                Menu {
-                    Button { showImporter = true } label: {
-                        Label("Import File", systemImage: "square.and.arrow.down")
-                    }
-                    Button {
-                        newFileName = ""
-                        showNewFileAlert = true
-                    } label: {
-                        Label("New Script", systemImage: "doc.badge.plus")
-                    }
-                    Button { showTemplates = true } label: {
-                        Label("From Template", systemImage: "doc.on.doc")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.body.weight(.medium))
-                        .foregroundColor(.primary)
-                }
-            }
-            .padding(.horizontal, 20)
+            .frame(maxHeight: .infinity)
+
+            // Bottom tab bar: Scripts / Recordings / Examples
+            bottomTabBar
         }
         .onAppear {
             fileManager.refreshRecordings()
@@ -113,7 +89,7 @@ struct FileBrowserSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .sheet(isPresented: $showTemplates) {
+        .fullScreenCover(isPresented: $showTemplates) {
             TemplatePickerView(isPresented: $showTemplates) { filename, content in
                 if let file = fileManager.createFile(name: filename) {
                     let _ = fileManager.saveFile(file, content: content)
@@ -126,6 +102,120 @@ struct FileBrowserSheet: View {
         .sheet(item: $selectedRecording) { rec in
             RecordingPlayerView(recording: rec)
                 .presentationDetents([.medium])
+        }
+    }
+
+    // MARK: - Top Bar (... menu + search)
+
+    var topBar: some View {
+        HStack(spacing: 10) {
+            // ... menu (like Pages)
+            Menu {
+                Button { showImporter = true } label: {
+                    Label("Import File", systemImage: "square.and.arrow.down")
+                }
+                Button {
+                    newFileName = ""
+                    showNewFileAlert = true
+                } label: {
+                    Label("New Script", systemImage: "doc.badge.plus")
+                }
+                Button { showTemplates = true } label: {
+                    Label("From Template", systemImage: "doc.on.doc")
+                }
+                Divider()
+                Menu("Sort By") {
+                    Button { } label: { Label("Name", systemImage: "textformat") }
+                    Button { } label: { Label("Date", systemImage: "calendar") }
+                    Button { } label: { Label("Size", systemImage: "arrow.up.arrow.down") }
+                }
+                Divider()
+                Button { app.showSettings = true } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.medium))
+                    .foregroundColor(.primary)
+                    .frame(width: 36, height: 36)
+                    .background(Color(.systemGray5))
+                    .clipShape(Circle())
+            }
+
+            // Search bar (expandable like Pages)
+            if isSearching {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("Search", text: $searchText)
+                        .textFieldStyle(.plain)
+                    Button {
+                        searchText = ""
+                        withAnimation { isSearching = false }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(8)
+                .background(Color(.systemGray5))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                Spacer()
+            }
+
+            // Search button (when not searching)
+            if !isSearching {
+                Button {
+                    withAnimation { isSearching = true }
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(Color(.systemGray5))
+                        .clipShape(Circle())
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Bottom Tab Bar
+
+    var bottomTabBar: some View {
+        HStack(spacing: 0) {
+            tabButton("Scripts", icon: "doc.text", tag: 0)
+            tabButton("Recordings", icon: "waveform", tag: 1)
+            tabButton("Examples", icon: "book.closed", tag: 2)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .padding(.bottom, 16)
+    }
+
+    private func tabButton(_ title: String, icon: String, tag: Int) -> some View {
+        Button {
+            selectedTab = tag
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.body)
+                Text(title)
+                    .font(.caption2)
+            }
+            .foregroundColor(selectedTab == tag ? .accentColor : .secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(
+                selectedTab == tag
+                    ? Color.accentColor.opacity(0.1)
+                    : Color.clear
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
 
@@ -168,6 +258,29 @@ struct FileBrowserSheet: View {
 
     var recordingsTab: some View {
         List {
+            // Show recording indicator if currently recording
+            if app.isRecording {
+                HStack {
+                    Circle().fill(Color.red).frame(width: 8, height: 8)
+                    Text("Recording in progress...")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.red)
+                    Spacer()
+                    Button {
+                        app.toggleRecording()
+                    } label: {
+                        Text("Stop")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.red)
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
             ForEach(filteredRecordings) { rec in
                 Button { selectedRecording = rec } label: {
                     HStack {
@@ -191,7 +304,7 @@ struct FileBrowserSheet: View {
                     }.tint(.blue)
                 }
             }
-            if filteredRecordings.isEmpty {
+            if filteredRecordings.isEmpty && !app.isRecording {
                 emptyLabel(searchText.isEmpty ? "No recordings yet" : "No matches")
             }
         }
@@ -216,45 +329,6 @@ struct FileBrowserSheet: View {
                         Spacer()
                         if file.path == app.currentFile {
                             Image(systemName: "checkmark").foregroundColor(.accentColor)
-                        }
-                    }
-                }
-            }
-        }
-        .listStyle(.plain)
-    }
-
-    var searchTab: some View {
-        List {
-            if !filteredScripts.isEmpty {
-                Section("Scripts") {
-                    ForEach(filteredScripts) { file in
-                        Button { openFile(file) } label: {
-                            HStack {
-                                Image(systemName: "doc.text")
-                                Text(file.name)
-                            }
-                        }
-                    }
-                }
-            }
-            if !filteredRecordings.isEmpty {
-                Section("Recordings") {
-                    ForEach(filteredRecordings) { rec in
-                        Button { selectedRecording = rec } label: {
-                            HStack {
-                                Image(systemName: "waveform").foregroundColor(.red)
-                                Text(rec.name)
-                            }
-                        }
-                    }
-                }
-            }
-            if !filteredExamples.isEmpty {
-                Section("Examples") {
-                    ForEach(filteredExamples) { file in
-                        Button { openFile(file) } label: {
-                            Text(file.name)
                         }
                     }
                 }
