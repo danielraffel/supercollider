@@ -3,8 +3,6 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var app: AppState
     @State private var fileSheetDetent: PresentationDetent = .medium
-    @State private var showSheet = true
-
     var body: some View {
         NavigationStack {
             HomeView()
@@ -15,7 +13,10 @@ struct ContentView: View {
                 }
         }
         // File browser sheet — shown when not in editor
-        .sheet(isPresented: $showSheet) {
+        .sheet(isPresented: Binding(
+            get: { !app.hideSheet },
+            set: { if !$0 { app.hideSheet = true } }
+        )) {
             FileBrowserSheet(sheetDetent: $fileSheetDetent)
                 .environmentObject(app)
                 .presentationDetents([.medium, .large], selection: $fileSheetDetent)
@@ -28,23 +29,7 @@ struct ContentView: View {
             PostOverlayView()
                 .environmentObject(app)
         }
-        .onChange(of: app.showEditor) { _, isEditing in
-            if isEditing {
-                // Hide sheet instantly (no animation) when entering editor
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    showSheet = false
-                }
-            } else {
-                // Show sheet without animation when returning from editor
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    showSheet = true
-                }
-            }
-        }
+        .onChange(of: app.showEditor) { _, _ in }
     }
 }
 
@@ -215,43 +200,39 @@ struct FileBrowserSheet: View {
         .padding(.bottom, 6)
     }
 
-    // MARK: - Bottom Tab Bar (glass pill with selection highlight)
+    // MARK: - Bottom Tab Bar (glass pill with sliding selection)
+
+    @Namespace private var tabAnimation
 
     var bottomTabBar: some View {
-        GlassEffectContainer(spacing: 4) {
-            HStack(spacing: 4) {
-                tabButton("Scripts", icon: "doc.text", tag: 0)
-                tabButton("Recordings", icon: "waveform", tag: 1)
-                tabButton("Examples", icon: "book.closed", tag: 2)
-            }
-            .padding(4)
-            .glassEffect(.regular, in: .capsule)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .padding(.bottom, 8)
-    }
-
-    private func tabButton(_ title: String, icon: String, tag: Int) -> some View {
-        let isSelected = selectedTab == tag
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tag }
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon).font(.body)
-                Text(title).font(.caption2)
-            }
-            .foregroundColor(isSelected ? .accentColor : .secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .overlay {
-                if isSelected {
-                    Capsule()
-                        .fill(.clear)
-                        .glassEffect(.regular, in: .capsule)
+        HStack(spacing: 0) {
+            ForEach([(0, "Scripts", "doc.text"), (1, "Recordings", "waveform"), (2, "Examples", "book.closed")], id: \.0) { tag, title, icon in
+                let isSelected = selectedTab == tag
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) { selectedTab = tag }
+                } label: {
+                    VStack(spacing: 3) {
+                        Image(systemName: icon).font(.body)
+                        Text(title).font(.caption2)
+                    }
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background {
+                        if isSelected {
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.12))
+                                .matchedGeometryEffect(id: "tabHighlight", in: tabAnimation)
+                        }
+                    }
                 }
             }
         }
+        .padding(5)
+        .glassEffect(.regular, in: .capsule)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Tab Content
@@ -510,7 +491,11 @@ struct FileBrowserSheet: View {
             app.hasUnsavedChanges = false
             app.isEditing = alwaysEditMode
             app.autosave()
-            app.showEditor = true
+            // Hide sheet first, then navigate to avoid visible overlap
+            app.hideSheet = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                app.showEditor = true
+            }
             if autoLoadSynthDefs {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     app.autoLoadSynthDefs()
