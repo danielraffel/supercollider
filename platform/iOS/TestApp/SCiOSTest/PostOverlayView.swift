@@ -49,13 +49,6 @@ struct PostOverlayView: View {
                     } label: {
                         Label("Clear", systemImage: "trash")
                     }
-
-                    Button {
-                        app.showPost = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
                 }
             }
         }
