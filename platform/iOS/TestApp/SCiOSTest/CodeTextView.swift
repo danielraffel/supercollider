@@ -22,21 +22,21 @@ class SCCodeTextView: UITextView {
     var readModeActive = false {
         didSet {
             if readModeActive != oldValue {
-                // Force keyboard to dismiss/show when mode changes
-                if readModeActive && isFirstResponder {
-                    // Don't resign — just reload input views to hide keyboard
-                    reloadInputViews()
-                } else if !readModeActive && isFirstResponder {
-                    reloadInputViews()
-                }
+                reloadInputViews()
             }
         }
     }
 
+    // Cached empty view for keyboard suppression
+    private lazy var emptyInputView: UIView = {
+        let v = UIView(frame: .zero)
+        return v
+    }()
+
     // Override inputView to suppress keyboard in Read mode
     override var inputView: UIView? {
-        get { readModeActive ? UIView() : super.inputView }
-        set { super.inputView = newValue }
+        get { readModeActive ? emptyInputView : nil }
+        set { }  // Ignore sets
     }
 
     // Tracks whether a long-press is active for line-based selection
@@ -88,7 +88,7 @@ class SCCodeTextView: UITextView {
     }
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
-        guard gesture.state == .ended && !isEditable else { return }
+        guard gesture.state == .ended && readModeActive else { return }
 
         let location = gesture.location(in: self)
         let touchPosition = closestPosition(to: location) ?? beginningOfDocument
@@ -164,7 +164,7 @@ class SCCodeTextView: UITextView {
 
     /// Try to start a value scrub at the given point (read mode only)
     func tryStartScrub(at point: CGPoint) -> Bool {
-        guard !isEditable else { return false }
+        guard readModeActive else { return false }
 
         let charIndex = layoutManager.characterIndex(
             for: point, in: textContainer,

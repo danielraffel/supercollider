@@ -54,7 +54,7 @@ struct FileBrowserSheet: View {
     @EnvironmentObject var app: AppState
     @Binding var sheetDetent: PresentationDetent
     @StateObject private var fileManager = SCFileManager()
-    @State private var selectedTab = 0
+    @AppStorage("sc_file_browser_tab") private var selectedTab = 0
     @State private var searchText = ""
     @State private var isSearching = false
     @State private var showImporter = false
@@ -215,15 +215,16 @@ struct FileBrowserSheet: View {
         .padding(.bottom, 6)
     }
 
-    // MARK: - Bottom Tab Bar
+    // MARK: - Bottom Tab Bar (glass pill with selection highlight)
 
     var bottomTabBar: some View {
-        GlassEffectContainer(spacing: 0) {
-            HStack(spacing: 0) {
+        GlassEffectContainer(spacing: 4) {
+            HStack(spacing: 4) {
                 tabButton("Scripts", icon: "doc.text", tag: 0)
                 tabButton("Recordings", icon: "waveform", tag: 1)
                 tabButton("Examples", icon: "book.closed", tag: 2)
             }
+            .padding(4)
             .glassEffect(.regular, in: .capsule)
         }
         .padding(.horizontal, 16)
@@ -232,16 +233,24 @@ struct FileBrowserSheet: View {
     }
 
     private func tabButton(_ title: String, icon: String, tag: Int) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tag }
+        let isSelected = selectedTab == tag
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tag }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon).font(.body)
                 Text(title).font(.caption2)
             }
-            .foregroundColor(selectedTab == tag ? .accentColor : .secondary)
+            .foregroundColor(isSelected ? .accentColor : .secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
+            .overlay {
+                if isSelected {
+                    Capsule()
+                        .fill(.clear)
+                        .glassEffect(.regular, in: .capsule)
+                }
+            }
         }
     }
 
@@ -292,9 +301,6 @@ struct FileBrowserSheet: View {
                                 Image(systemName: "doc.text")
                                 Text(file.name)
                                 Spacer()
-                                if file.path == app.currentFile {
-                                    Image(systemName: "checkmark").foregroundColor(.accentColor)
-                                }
                             }
                         }
                         .swipeActions(edge: .trailing) {
@@ -307,7 +313,7 @@ struct FileBrowserSheet: View {
                         emptyLabel(searchText.isEmpty ? "No scripts yet" : "No matches")
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
             }
         }
         .confirmationDialog("Delete script?", isPresented: Binding(
@@ -394,7 +400,7 @@ struct FileBrowserSheet: View {
                         emptyLabel(searchText.isEmpty ? "No recordings yet" : "No matches")
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
             }
         }
         .confirmationDialog("Delete recording?", isPresented: Binding(
@@ -463,14 +469,11 @@ struct FileBrowserSheet: View {
                             HStack {
                                 Text(file.name)
                                 Spacer()
-                                if file.path == app.currentFile {
-                                    Image(systemName: "checkmark").foregroundColor(.accentColor)
-                                }
                             }
                         }
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
             }
         }
     }
