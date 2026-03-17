@@ -27,10 +27,7 @@ struct ContentView: View {
             PostOverlayView()
                 .environmentObject(app)
         }
-        .sheet(isPresented: $app.showSettings) {
-            SettingsView()
-                .environmentObject(app)
-        }
+        // Settings handled by fullScreenCover on sheet (not here)
     }
 }
 
@@ -93,9 +90,14 @@ struct FileBrowserSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        // Template picker as fullScreenCover ON the sheet (so it's above the sheet)
+        // Template picker as fullScreenCover ON the sheet (above the sheet)
         .fullScreenCover(isPresented: $app.showTemplates) {
             TemplateCoverView()
+                .environmentObject(app)
+        }
+        // Settings as sheet ON the file browser sheet
+        .sheet(isPresented: $app.showSettings) {
+            SettingsView()
                 .environmentObject(app)
         }
         .sheet(item: $selectedRecording) { rec in
@@ -129,56 +131,56 @@ struct FileBrowserSheet: View {
                 .glassEffect(.regular, in: .capsule)
                 .transition(.opacity)
             } else {
-                // Pill toolbar: [+] [...] [🔍] all on one line
-                GlassEffectContainer(spacing: 12) {
-                    HStack(spacing: 0) {
-                        // + only when expanded to full
-                        if isExpanded {
-                            Button {
-                                let formatter = DateFormatter()
-                                formatter.dateFormat = "MMdd-HHmm"
-                                let name = "sketch-\(formatter.string(from: Date())).scd"
-                                if let file = fileManager.createFile(name: name) {
-                                    openFile(file)
-                                    app.isEditing = true
+                // Pill toolbar: [+] [...] grouped pill + [🔍] pill — all on one HStack line
+                HStack(spacing: 8) {
+                    GlassEffectContainer(spacing: 8) {
+                        HStack(spacing: 0) {
+                            if isExpanded {
+                                Button {
+                                    let formatter = DateFormatter()
+                                    formatter.dateFormat = "MMdd-HHmm"
+                                    let name = "sketch-\(formatter.string(from: Date())).scd"
+                                    if let file = fileManager.createFile(name: name) {
+                                        openFile(file)
+                                        app.isEditing = true
+                                    }
+                                } label: {
+                                    Image(systemName: "plus")
+                                        .font(.body.weight(.medium))
+                                        .frame(width: 40, height: 36)
+                                }
+                            }
+
+                            Menu {
+                                Button { showImporter = true } label: {
+                                    Label("Import File", systemImage: "square.and.arrow.down")
+                                }
+                                Button { withAnimation { app.showTemplates = true } } label: {
+                                    Label("From Template", systemImage: "doc.on.doc")
+                                }
+                                Button {
+                                    newFileName = ""
+                                    showNewFileAlert = true
+                                } label: {
+                                    Label("New Script", systemImage: "doc.badge.plus")
+                                }
+                                Divider()
+                                Picker("Sort By", selection: $sortBy) {
+                                    Label("Name", systemImage: "textformat").tag("Name")
+                                    Label("Date", systemImage: "calendar").tag("Date")
+                                    Label("Size", systemImage: "arrow.up.arrow.down").tag("Size")
                                 }
                             } label: {
-                                Image(systemName: "plus")
+                                Image(systemName: "ellipsis")
                                     .font(.body.weight(.medium))
                                     .frame(width: 40, height: 36)
                             }
                         }
-
-                        // ... menu
-                        Menu {
-                            Button { showImporter = true } label: {
-                                Label("Import File", systemImage: "square.and.arrow.down")
-                            }
-                            Button { withAnimation { app.showTemplates = true } } label: {
-                                Label("From Template", systemImage: "doc.on.doc")
-                            }
-                            Button {
-                                newFileName = ""
-                                showNewFileAlert = true
-                            } label: {
-                                Label("New Script", systemImage: "doc.badge.plus")
-                            }
-                            Divider()
-                            Picker("Sort By", selection: $sortBy) {
-                                Label("Name", systemImage: "textformat").tag("Name")
-                                Label("Date", systemImage: "calendar").tag("Date")
-                                Label("Size", systemImage: "arrow.up.arrow.down").tag("Size")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.body.weight(.medium))
-                                .frame(width: 40, height: 36)
-                        }
+                        .foregroundColor(.primary)
+                        .glassEffect(.regular, in: .capsule)
                     }
-                    .foregroundColor(.primary)
-                    .glassEffect(.regular, in: .capsule)
 
-                    // Search icon (separate pill)
+                    // Search icon — separate button, same line
                     Button {
                         withAnimation { isSearching = true }
                     } label: {

@@ -128,17 +128,36 @@ struct EditorView: View {
     // MARK: - Value Scrub UI
 
     @State private var liveMode = false
+    @State private var liveNdefActive = false
 
     var scrubPopup: some View {
         VStack(spacing: 12) {
+            // Context description
+            Text(scrubContextDescription)
+                .font(.caption.weight(.medium))
+                .foregroundColor(.orange.opacity(0.7))
+                .lineLimit(1)
+
             // Value display
             Text(formattedScrubValue)
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.orange)
 
-            Text("was \(app.scrubOriginalValue)")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            HStack {
+                Text("was \(app.scrubOriginalValue)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                // Undo to original
+                Button {
+                    app.scrubValue = Double(app.scrubOriginalValue) ?? 0
+                    updateCodeWithScrubValue()
+                    if liveMode { liveApply() }
+                } label: {
+                    Image(systemName: "arrow.uturn.backward.circle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
 
             // Slider
             let original = Double(app.scrubOriginalValue) ?? 0
@@ -188,7 +207,11 @@ struct EditorView: View {
                 // Live toggle
                 Button {
                     liveMode.toggle()
-                    if liveMode { liveApply() }
+                    if liveMode {
+                        liveApply()
+                    } else {
+                        stopLiveNdef()
+                    }
                 } label: {
                     HStack(spacing: 4) {
                         Circle()
@@ -224,9 +247,10 @@ struct EditorView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
 
-                // Dismiss (keep change, no re-evaluate)
+                // Dismiss (keep change, stop live Ndef)
                 Button {
                     app.isScrubbing = false
+                    stopLiveNdef()
                     liveMode = false
                     app.scrubRange = nil
                 } label: {
@@ -251,10 +275,56 @@ struct EditorView: View {
 
     /// Live apply: stop current synth and re-evaluate the block with new value.
     /// Throttled to avoid flooding the server.
+    /// Smart live apply: wraps {}.play blocks in Ndef for smooth crossfade updates.
+    /// Ndef blocks are re-evaluated directly. Patterns use stop+re-evaluate.
     private func liveApply() {
+        // Get the code that would be evaluated (selection or whole block)
+        let code: String
+        if let snapshot = scSnapshotSelection?(), !snapshot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            code = snapshot
+        } else if !app.lastSelection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            code = app.lastSelection
+        } else {
+            code = app.codeText
+        }
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // If already using Ndef, just re-evaluate — it cross-fades automatically
+        if trimmed.contains("Ndef(") {
+            app.evaluate(trimmed)
+            liveNdefActive = true
+            return
+        }
+
+        // If it's a {}.play block, wrap it in Ndef for smooth live updates
+        if trimmed.contains(".play") && (trimmed.hasPrefix("{") || trimmed.hasPrefix("(")) {
+            // Extract the function body: find the { ... } and wrap in Ndef
+            let ndefCode = "Ndef(\\scrub, " + trimmed
+                .replacingOccurrences(of: ".play;", with: "")
+                .replacingOccurrences(of: ".play", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                // Remove outer ( ) if present
+                .replacingOccurrences(of: "^\\(\\s*", with: "", options: .regularExpression)
+                .replacingOccurrences(of: "\\s*\\)$", with: "", options: .regularExpression)
+            + ").play;"
+
+            app.evaluate(ndefCode)
+            liveNdefActive = true
+            return
+        }
+
+        // Fallback: stop and re-evaluate (for patterns, etc.)
         app.stopAll()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             app.evaluateSelection()
+        }
+    }
+
+    /// Clean up Ndef when turning off live mode
+    private func stopLiveNdef() {
+        if liveNdefActive {
+            app.evaluate("Ndef(\\scrub).stop(0.5);")
+            liveNdefActive = false
         }
     }
 
@@ -302,6 +372,59 @@ struct EditorView: View {
             // General float
             return 0...max(abs(original) * 4, 10)
         }
+    }
+
+    /// Analyzes the code around the scrubbed number to describe what it controls
+    private var scrubContextDescription: String {
+        guard let range = app.scrubRange else { return "" }
+        let code = app.codeText as NSString
+        // Get ~80 chars before the number for context
+        let contextStart = max(0, range.location - 80)
+        let contextLen = range.location - contextStart
+        let before = code.substring(with: NSRange(location: contextStart, length: contextLen))
+
+        // Pattern match common SC UGen arguments
+        if before.contains("SinOsc.ar(") || before.contains("Saw.ar(") || before.contains("Pulse.ar(") {
+            let original = Double(app.scrubOriginalValue) ?? 0
+            if original > 20 && original < 20000 { return "Frequency — Oscillator" }
+            if original >= 0 && original <= 1 { return "Amplitude — Oscillator" }
+        }
+        if before.contains("LPF.ar(") || before.contains("HPF.ar(") || before.contains("RLPF.ar(") {
+            return "Cutoff Frequency — Filter"
+        }
+        if before.contains("FreeVerb.ar(") {
+            let original = Double(app.scrubOriginalValue) ?? 0
+            if original >= 0 && original <= 1 { return "Mix/Room/Damp — Reverb" }
+        }
+        if before.contains("Env.perc(") || before.contains("Env.adsr(") {
+            return "Envelope Time"
+        }
+        if before.contains("CombL.ar(") || before.contains("CombN.ar(") {
+            return "Delay Time/Decay"
+        }
+        if before.contains("\\amp") || before.contains("amp,") {
+            return "Amplitude"
+        }
+        if before.contains("\\freq") || before.contains("freq,") {
+            return "Frequency"
+        }
+        if before.contains("\\dur") || before.contains("dur,") {
+            return "Duration"
+        }
+        if before.contains("Dust.kr(") || before.contains("Impulse.kr(") {
+            return "Trigger Rate"
+        }
+        if before.contains(".range(") {
+            return "Range Parameter"
+        }
+        if before.contains("GrainSin") || before.contains("GrainFM") || before.contains("GrainBuf") {
+            return "Granular Parameter"
+        }
+
+        let original = Double(app.scrubOriginalValue) ?? 0
+        if original > 20 && original < 20000 { return "Frequency (Hz)" }
+        if original >= 0 && original <= 1 { return "Amplitude / Mix (0–1)" }
+        return "Parameter"
     }
 
     private func fineStep(for original: Double) -> Double {
