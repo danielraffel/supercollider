@@ -16,6 +16,8 @@ class AppState: ObservableObject {
     @Published var showPost: Bool = false
     @Published var showSettings: Bool = false
     @Published var postOutput = ""
+    @Published var toastMessage: String? = nil
+    @Published var toastIsError: Bool = false
     @Published var currentFile: String? = nil
     @Published var codeText = "{ SinOsc.ar(440, 0, 0.3) }.play;\n"
     /// Last known text selection (saved before text view loses focus)
@@ -151,11 +153,13 @@ class AppState: ObservableObject {
 
     func evaluate(_ code: String) {
         guard sclangReady else {
+            showToast("sclang not ready", isError: true)
             appendPost("⚠ sclang not ready\n")
             return
         }
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
+            showToast("Empty code", isError: true)
             appendPost("⚠ empty code\n")
             return
         }
@@ -164,7 +168,27 @@ class AppState: ObservableObject {
         appendPost("▶ \(preview)\(trimmed.count > 80 ? "..." : "")\n")
         let ok = sclang.interpret(trimmed)
         if !ok {
+            showToast("Evaluate failed", isError: true)
             appendPost("⚠ interpret returned false\n")
+        } else {
+            // Brief description for the toast
+            let desc: String
+            if trimmed.contains("SynthDef") { desc = "SynthDef loaded" }
+            else if trimmed.contains("Pbind") || trimmed.contains("Ppar") || trimmed.contains("Pseq") { desc = "Pattern started" }
+            else if trimmed.contains(".play") { desc = "Synth created" }
+            else if trimmed.contains("CmdPeriod") { desc = "Stopped" }
+            else { desc = "Evaluated" }
+            showToast(desc, isError: false)
+        }
+    }
+
+    func showToast(_ message: String, isError: Bool) {
+        toastMessage = message
+        toastIsError = isError
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            if self?.toastMessage == message {
+                self?.toastMessage = nil
+            }
         }
     }
 

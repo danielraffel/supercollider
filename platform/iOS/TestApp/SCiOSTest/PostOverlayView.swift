@@ -28,14 +28,6 @@ struct PostOverlayView: View {
             .navigationTitle("Post Window")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if showCopied {
-                        Text("Copied!")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                            .transition(.opacity)
-                    }
-                }
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         UIPasteboard.general.string = app.postOutput
@@ -44,11 +36,18 @@ struct PostOverlayView: View {
                             withAnimation { showCopied = false }
                         }
                     } label: {
-                        Text("Copy")
+                        if showCopied {
+                            Label("Copied", systemImage: "checkmark")
+                                .foregroundColor(.green)
+                        } else {
+                            Label("Copy", systemImage: "doc.on.doc")
+                        }
                     }
 
-                    Button("Clear", role: .destructive) {
+                    Button(role: .destructive) {
                         app.clearPost()
+                    } label: {
+                        Label("Clear", systemImage: "trash")
                     }
 
                     Button {

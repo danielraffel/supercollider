@@ -21,6 +21,26 @@ struct EditorView: View {
             .layoutPriority(1)
         }
         .background(Color.black)
+        .overlay(alignment: .bottom) {
+            if let toast = app.toastMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: app.toastIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .foregroundColor(app.toastIsError ? .red : .green)
+                    Text(toast)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(app.toastIsError ? .red : .green)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    (app.toastIsError ? Color.red : Color.green).opacity(0.15)
+                )
+                .clipShape(Capsule())
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.easeInOut(duration: 0.25), value: app.toastMessage)
+            }
+        }
         .onAppear {
             if alwaysEditMode { app.isEditing = true }
         }
