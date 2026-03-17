@@ -41,6 +41,7 @@ class AppState: ObservableObject {
     @Published var scrubOriginalValue: String = ""
     @Published var scrubRange: NSRange?
     @Published var scrubPopupRect: CGRect = .zero
+    @Published var liveMode: Bool = false
     /// Scrub undo/redo history
     @Published var scrubHistory: [Double] = []
     @Published var scrubHistoryIndex: Int = -1

@@ -51,6 +51,8 @@ struct EditorView: View {
                     // Initialize scrub history
                     app.scrubHistory = [Double(value) ?? 0]
                     app.scrubHistoryIndex = 0
+                    // Auto-enable live mode if synths are already playing
+                    if app.isPlaying { app.liveMode = true }
                     app.isScrubbing = true
                 }
             )
@@ -82,8 +84,7 @@ struct EditorView: View {
                                 app.codeText = nsText.replacingCharacters(in: range, with: app.scrubOriginalValue)
                             }
                         }
-                        stopLiveNdef()
-                        liveMode = false
+                        stopLivePlayback()
                         app.isScrubbing = false
                         app.scrubRange = nil
                         app.scrubHistory = []
@@ -162,8 +163,7 @@ struct EditorView: View {
 
     // MARK: - Value Scrub UI
 
-    @State private var liveMode = false
-    @State private var liveNdefActive = false
+    // Live mode state is in app.liveMode (persists across scrub sessions)
 
     var scrubPopup: some View {
         VStack(spacing: 12) {
@@ -210,7 +210,7 @@ struct EditorView: View {
                     app.scrubValue = Double(app.scrubOriginalValue) ?? 0
                     pushScrubHistory(app.scrubValue)
                     updateCodeWithScrubValue()
-                    if liveMode { liveApply() }
+                    if app.liveMode { liveApply() }
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.caption.weight(.medium))
@@ -230,7 +230,7 @@ struct EditorView: View {
                 .tint(.orange)
                 .onChange(of: app.scrubValue) { _, _ in
                     updateCodeWithScrubValue()
-                    if liveMode {
+                    if app.liveMode {
                         liveApply()
                     }
                 }
@@ -250,7 +250,7 @@ struct EditorView: View {
                     app.scrubValue -= fineStep(for: original)
                     pushScrubHistory(app.scrubValue)
                     updateCodeWithScrubValue()
-                    if liveMode { liveApply() }
+                    if app.liveMode { liveApply() }
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.title2).foregroundColor(.secondary)
@@ -259,7 +259,7 @@ struct EditorView: View {
                     app.scrubValue += fineStep(for: original)
                     pushScrubHistory(app.scrubValue)
                     updateCodeWithScrubValue()
-                    if liveMode { liveApply() }
+                    if app.liveMode { liveApply() }
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.title2).foregroundColor(.secondary)
@@ -272,45 +272,46 @@ struct EditorView: View {
             HStack(spacing: 10) {
                 // Live toggle
                 Button {
-                    liveMode.toggle()
-                    if liveMode {
-                        // Free all synths in the default group (keeps the group alive,
-                        // unlike CmdPeriod which destroys it and causes timing issues).
-                        // Then immediately start the Ndef version.
-                        app.evaluate("Server.internal.defaultGroup.freeAll;")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                            liveApply()
-                        }
+                    app.liveMode.toggle()
+                    if app.liveMode {
+                        // Immediately apply with current value
+                        liveApply()
                     } else {
-                        stopLiveNdef()
+                        stopLivePlayback()
                     }
                 } label: {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(liveMode ? Color.red : Color.gray)
+                            .fill(app.liveMode ? Color.red : Color.gray)
                             .frame(width: 8, height: 8)
                         Text("Live")
                             .font(.subheadline.weight(.medium))
                     }
-                    .foregroundColor(liveMode ? .red : .secondary)
+                    .foregroundColor(app.liveMode ? .red : .secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(liveMode ? Color.red.opacity(0.15) : Color(.systemGray5))
+                    .background(app.liveMode ? Color.red.opacity(0.15) : Color(.systemGray5))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
 
-                // Apply (stop + re-evaluate)
+                // Apply — keep the new value, stop + re-evaluate the block cleanly
                 Button {
+                    let wasLive = app.liveMode
                     app.isScrubbing = false
-                    liveMode = false
-                    app.stopAll()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        app.evaluateSelection()
-                    }
                     app.scrubRange = nil
                     app.scrubHistory = []
                     app.scrubHistoryIndex = -1
-                    app.showToast("Applied", isError: false)
+                    if wasLive {
+                        // Already playing with the new value — just close
+                        app.showToast("Applied", isError: false)
+                    } else {
+                        // Not in live mode — stop and re-evaluate to hear the change
+                        app.stopAll()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            app.evaluateSelection()
+                        }
+                        app.showToast("Applied", isError: false)
+                    }
                 } label: {
                     Text("Apply")
                         .font(.subheadline.weight(.semibold))
@@ -334,80 +335,36 @@ struct EditorView: View {
         .transition(.scale.combined(with: .opacity))
     }
 
-    /// Live apply: stop current synth and re-evaluate the block with new value.
-    /// Throttled to avoid flooding the server.
-    /// Smart live apply: wraps {}.play blocks in Ndef for smooth crossfade updates.
-    /// Ndef blocks are re-evaluated directly. Patterns use stop+re-evaluate.
+    /// Live apply: free current synths, then re-evaluate the block with the new value.
+    /// Simple and reliable — brief audio gap but always works.
     private func liveApply() {
         // Get the code from the selection range (includes current scrubbed value).
-        // lastSelectionRange is set either by long-press selection or automatically
-        // when the scrubber opens (finds enclosing block around the number).
         let code: String
         if let range = app.lastSelectionRange {
             let nsText = app.codeText as NSString
             if range.location + range.length <= nsText.length {
                 code = nsText.substring(with: range)
             } else {
-                app.appendPost("⚠ Live: selection range out of bounds, using whole file\n")
                 code = app.codeText
             }
         } else {
-            app.appendPost("⚠ Live: no selection range, using whole file\n")
             code = app.codeText
         }
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, app.sclangReady else { return }
 
-        // If already using Ndef, just re-evaluate — it cross-fades automatically
-        if trimmed.contains("Ndef(") {
-            liveEvaluate(trimmed)
-            liveNdefActive = true
-            return
+        // Free current synths then immediately re-evaluate with the new value
+        let _ = app.sclang.interpret("Server.internal.defaultGroup.freeAll;")
+        let sclang = app.sclang
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+            let _ = sclang.interpret(trimmed)
         }
-
-        // For {}.play blocks, wrap in Ndef for smooth live updates (no audio gap).
-        // Strip .play and outer ( ) to extract the synth function, then wrap in Ndef.
-        if trimmed.contains(".play") {
-            var body = trimmed
-            // Remove .play / .play; / .play(fadeTime) variants
-            body = body.replacingOccurrences(
-                of: "\\.play\\s*(?:\\([^)]*\\))?\\s*;?",
-                with: "",
-                options: .regularExpression
-            )
-            body = body.trimmingCharacters(in: .whitespacesAndNewlines)
-            // Remove outer SC block parens ( ... ) if present
-            if body.hasPrefix("(") && body.hasSuffix(")") {
-                body = String(body.dropFirst().dropLast())
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            if !body.isEmpty {
-                let ndefCode = "Ndef(\\scrub, \(body)).play;"
-                app.appendPost("Live → \(ndefCode.prefix(100))\n")
-                liveEvaluate(ndefCode)
-                liveNdefActive = true
-                return
-            }
-        }
-
-        // Fallback: just re-evaluate the code as-is
-        app.appendPost("Live fallback → \(trimmed.prefix(80))\n")
-        liveEvaluate(trimmed)
     }
 
-    /// Evaluate code silently (no toast spam during live scrubbing)
-    private func liveEvaluate(_ code: String) {
-        guard app.sclangReady else { return }
-        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let _ = app.sclang.interpret(trimmed)
-    }
-
-    /// Clean up Ndef when turning off live mode
-    private func stopLiveNdef() {
-        if liveNdefActive {
-            app.evaluate("Ndef(\\scrub).stop(0.5);")
-            liveNdefActive = false
+    /// Stop live playback
+    private func stopLivePlayback() {
+        if app.sclangReady {
+            let _ = app.sclang.interpret("Server.internal.defaultGroup.freeAll;")
         }
     }
 
@@ -437,7 +394,7 @@ struct EditorView: View {
         app.scrubHistoryIndex -= 1
         app.scrubValue = app.scrubHistory[app.scrubHistoryIndex]
         updateCodeWithScrubValue()
-        if liveMode { liveApply() }
+        if app.liveMode { liveApply() }
     }
 
     private func scrubRedo() {
@@ -445,7 +402,7 @@ struct EditorView: View {
         app.scrubHistoryIndex += 1
         app.scrubValue = app.scrubHistory[app.scrubHistoryIndex]
         updateCodeWithScrubValue()
-        if liveMode { liveApply() }
+        if app.liveMode { liveApply() }
     }
 
     // scrubBar is no longer needed — buttons are inline in the popup
