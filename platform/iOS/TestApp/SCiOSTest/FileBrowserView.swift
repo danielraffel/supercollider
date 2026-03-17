@@ -13,6 +13,10 @@ struct FileBrowserView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Hero header
+            heroHeader
+                .padding(.bottom, 4)
+
             // Segmented control
             Picker("", selection: $selectedTab) {
                 Text("Scripts").tag(0)
@@ -211,6 +215,55 @@ struct FileBrowserView: View {
         }
     }
 
+    // MARK: - Hero Header
+
+    var heroHeader: some View {
+        VStack(spacing: 12) {
+            Text("SuperCollider")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.primary)
+
+            HStack(spacing: 12) {
+                Button {
+                    showTemplates = true
+                } label: {
+                    Text("Choose a Template")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.orange)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
+                Button {
+                    let file = fileManager.createFile(name: "Untitled-\(Int(Date().timeIntervalSince1970)).scd")
+                    if let file = file {
+                        openFile(file)
+                        app.isEditing = true
+                    }
+                } label: {
+                    Text("Start Coding")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+
     // MARK: - Actions
 
     @AppStorage("sc_always_edit_mode") private var alwaysEditMode = false
@@ -222,12 +275,8 @@ struct FileBrowserView: View {
             app.currentFile = file.path
             app.isEditing = alwaysEditMode
             app.autosave()
-            // Navigate to editor
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                app.showEditor = true
-            } else {
-                withAnimation { app.selectedTab = 0 }
-            }
+            // Navigate to editor (push on nav stack)
+            app.showEditor = true
             if autoLoadSynthDefs {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     app.autoLoadSynthDefs()

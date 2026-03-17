@@ -114,6 +114,19 @@ struct EditorView: View {
                         .background(Color.accentColor)
                         .clipShape(Capsule())
                 }
+            } else {
+                // Read mode: Back to Files
+                Button(action: {
+                    app.autosave()
+                    app.showEditor = false
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.body.weight(.medium))
+                        Text("Files")
+                    }
+                    .foregroundColor(.accentColor)
+                }
             }
 
             Spacer()
