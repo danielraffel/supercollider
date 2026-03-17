@@ -274,7 +274,12 @@ struct EditorView: View {
                 Button {
                     liveMode.toggle()
                     if liveMode {
-                        liveApply()
+                        // Stop the original synth first, then start the Ndef version.
+                        // Subsequent slider changes update the Ndef smoothly (no stop needed).
+                        app.stopAll()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            liveApply()
+                        }
                     } else {
                         stopLiveNdef()
                     }
