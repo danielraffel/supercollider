@@ -115,6 +115,13 @@ class SCCodeTextView: UITextView {
             highlight.addAttribute(.backgroundColor, value: UIColor.orange.withAlphaComponent(0.3), range: numRange)
             attributedText = highlight
 
+            // Find the enclosing block for live mode evaluation
+            let blockRange = findEnclosingBlock(at: charIndex)
+                ?? lineRange(at: charIndex)
+            if let block = blockRange {
+                scSelectionRangeChanged?(block)
+            }
+
             scValueScrubStart?(numRange, valueStr, screenRect)
             return
         }
@@ -322,6 +329,12 @@ class SCCodeTextView: UITextView {
                         scGetSelectedText = { sel }
                         // Also update the range callback so liveApply() can re-read from codeText
                         scSelectionRangeChanged?(finalSelection)
+
+                        // Auto-evaluate on selection if enabled (default: on)
+                        if UserDefaults.standard.object(forKey: "sc_auto_eval_on_select") == nil
+                            || UserDefaults.standard.bool(forKey: "sc_auto_eval_on_select") {
+                            scEvaluateCallback?(sel)
+                        }
                     }
                 }
             }

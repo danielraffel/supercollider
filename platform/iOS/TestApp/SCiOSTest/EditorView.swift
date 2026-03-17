@@ -333,9 +333,9 @@ struct EditorView: View {
     /// Smart live apply: wraps {}.play blocks in Ndef for smooth crossfade updates.
     /// Ndef blocks are re-evaluated directly. Patterns use stop+re-evaluate.
     private func liveApply() {
-        // Get the code that would be evaluated.
-        // During scrubbing, codeText has the updated value but lastSelection is stale.
-        // Re-read the selection range from the current codeText to get the scrubbed value.
+        // Get the code from the selection range (includes current scrubbed value).
+        // lastSelectionRange is set either by long-press selection or automatically
+        // when the scrubber opens (finds enclosing block around the number).
         let code: String
         if let range = app.lastSelectionRange {
             let nsText = app.codeText as NSString
@@ -344,14 +344,11 @@ struct EditorView: View {
             } else {
                 code = app.codeText
             }
-        } else if let snapshot = scSnapshotSelection?(), !snapshot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            code = snapshot
-        } else if !app.lastSelection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            code = app.lastSelection
         } else {
             code = app.codeText
         }
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
 
         // If already using Ndef, just re-evaluate — it cross-fades automatically
         if trimmed.contains("Ndef(") {
@@ -360,28 +357,32 @@ struct EditorView: View {
             return
         }
 
-        // If it's a {}.play block, wrap it in Ndef for smooth live updates
-        if trimmed.contains(".play") && (trimmed.hasPrefix("{") || trimmed.hasPrefix("(")) {
-            // Extract the function body: find the { ... } and wrap in Ndef
-            let ndefCode = "Ndef(\\scrub, " + trimmed
-                .replacingOccurrences(of: ".play;", with: "")
-                .replacingOccurrences(of: ".play", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                // Remove outer ( ) if present
-                .replacingOccurrences(of: "^\\(\\s*", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "\\s*\\)$", with: "", options: .regularExpression)
-            + ").play;"
-
-            app.evaluate(ndefCode)
-            liveNdefActive = true
-            return
+        // For {}.play blocks, wrap in Ndef for smooth live updates (no audio gap).
+        // Strip .play and outer ( ) to extract the synth function, then wrap in Ndef.
+        if trimmed.contains(".play") {
+            var body = trimmed
+            // Remove .play / .play; / .play(fadeTime) variants
+            body = body.replacingOccurrences(
+                of: "\\.play\\s*(?:\\([^)]*\\))?\\s*;?",
+                with: "",
+                options: .regularExpression
+            )
+            body = body.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Remove outer SC block parens ( ... ) if present
+            if body.hasPrefix("(") && body.hasSuffix(")") {
+                body = String(body.dropFirst().dropLast())
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if !body.isEmpty {
+                let ndefCode = "Ndef(\\scrub, \(body)).play;"
+                app.evaluate(ndefCode)
+                liveNdefActive = true
+                return
+            }
         }
 
-        // Fallback: stop and re-evaluate (for patterns, etc.)
-        app.stopAll()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            app.evaluateSelection()
-        }
+        // Fallback: just re-evaluate the code as-is (don't stop — avoid audio gap)
+        app.evaluate(trimmed)
     }
 
     /// Clean up Ndef when turning off live mode

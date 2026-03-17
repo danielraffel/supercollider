@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("sc_scroll_to_selection") private var scrollToSelection: Bool = false
     @AppStorage("sc_always_edit_mode") private var alwaysEditMode: Bool = false
     @AppStorage("sc_auto_load_synthdefs") private var autoLoadSynthDefs: Bool = true
+    @AppStorage("sc_auto_eval_on_select") private var autoEvalOnSelect: Bool = true
 
     var body: some View {
         NavigationView {
@@ -34,6 +35,7 @@ struct SettingsView: View {
                 Section("Editor") {
                     Toggle("Always open in Edit mode", isOn: $alwaysEditMode)
                     Toggle("Auto-load SynthDefs on file open", isOn: $autoLoadSynthDefs)
+                    Toggle("Evaluate on long-press select", isOn: $autoEvalOnSelect)
                     Toggle("Scroll to show full selection", isOn: $scrollToSelection)
                 }
 
