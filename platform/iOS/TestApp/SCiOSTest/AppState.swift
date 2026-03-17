@@ -46,6 +46,8 @@ class AppState: ObservableObject {
     @Published var scrubHistory: [Double] = []
     @Published var scrubHistoryIndex: Int = -1
 
+    /// Whether SynthDefs have been auto-loaded for the current file
+    var synthDefsLoaded = false
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?
     private var fileAutosaveTimer: Timer?
@@ -188,6 +190,10 @@ class AppState: ObservableObject {
             appendPost("⚠ empty code\n")
             return
         }
+        // Auto-load SynthDefs before first evaluation so patterns/synths work
+        if !synthDefsLoaded && !trimmed.contains("SynthDef") {
+            autoLoadSynthDefs()
+        }
         // Log what we're evaluating (first 80 chars)
         let preview = String(trimmed.prefix(80)).replacingOccurrences(of: "\n", with: "↵")
         appendPost("▶ \(preview)\(trimmed.count > 80 ? "..." : "")\n")
@@ -294,6 +300,7 @@ class AppState: ObservableObject {
         if defsFound > 0 {
             appendPost("Auto-loaded \(defsFound) SynthDef block(s)\n")
         }
+        synthDefsLoaded = true
     }
 
     func stopAll() {
@@ -365,6 +372,7 @@ class AppState: ObservableObject {
         // Stop all sound first
         stopAll()
         sclangReady = false
+        synthDefsLoaded = false
         appendPost("Recompiling...\n")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let ok = SCiOSSclangRecompileLibrary()

@@ -488,6 +488,7 @@ struct FileBrowserSheet: View {
             app.codeText = content
             app.currentFile = file.path
             app.hasUnsavedChanges = false
+            app.synthDefsLoaded = false
             app.isEditing = alwaysEditMode
             app.autosave()
             app.showEditor = true
