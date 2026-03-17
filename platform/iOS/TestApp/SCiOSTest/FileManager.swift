@@ -35,6 +35,7 @@ class SCFileManager: ObservableObject {
     let documentsDir: URL
     let scriptsDir: URL
     let recordingsDir: URL
+    private var notificationObserver: Any?
 
     init() {
         documentsDir = Foundation.FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -71,6 +72,19 @@ class SCFileManager: ObservableObject {
 
         refreshFileList()
         refreshRecordings()
+
+        // Auto-refresh recordings when a recording finishes
+        notificationObserver = NotificationCenter.default.addObserver(
+            forName: .scRecordingFinished, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.refreshRecordings()
+        }
+    }
+
+    deinit {
+        if let observer = notificationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     func refreshRecordings() {

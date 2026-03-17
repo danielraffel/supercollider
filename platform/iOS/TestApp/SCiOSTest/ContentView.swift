@@ -6,7 +6,6 @@ enum IPadTab: Hashable {
 
 struct ContentView: View {
     @EnvironmentObject var app: AppState
-    @State private var selectedTab = 0
     @State private var selectedIPadTab: IPadTab? = .editor
 
     init() {
@@ -62,7 +61,7 @@ struct ContentView: View {
     // MARK: - iPhone Layout
 
     var iPhoneLayout: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $app.selectedTab) {
             EditorView()
                 .tabItem {
                     Label("Editor", systemImage: "chevron.left.forwardslash.chevron.right")

@@ -27,10 +27,13 @@ struct FileBrowserView: View {
             switch selectedTab {
             case 0:
                 scriptsTab
+                    .onAppear { fileManager.refreshFileList() }
             case 1:
                 recordingsTab
+                    .onAppear { fileManager.refreshRecordings() }
             case 2:
                 examplesTab
+                    .onAppear { fileManager.refreshFileList() }
             default:
                 scriptsTab
             }
@@ -219,6 +222,10 @@ struct FileBrowserView: View {
             app.currentFile = file.path
             app.isEditing = alwaysEditMode
             app.autosave()
+            // Switch to Editor tab
+            withAnimation {
+                app.selectedTab = 0
+            }
             if autoLoadSynthDefs {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     app.autoLoadSynthDefs()

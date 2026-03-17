@@ -23,27 +23,32 @@ struct EditorView: View {
         }
         .background(Color.black)
         .overlay(alignment: .bottom) {
-            if let toast = app.toastMessage {
-                HStack(spacing: 8) {
-                    Image(systemName: app.toastIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .foregroundColor(app.toastIsError ? .red : .green)
-                    Text(toast)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(app.toastIsError ? .red : .green)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    (app.toastIsError ? Color.red : Color.green).opacity(0.15)
-                )
-                .clipShape(Capsule())
-                .padding(.bottom, 12)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.easeInOut(duration: 0.25), value: app.toastMessage)
-            }
+            toastView
         }
         .onAppear {
             if alwaysEditMode { app.isEditing = true }
+        }
+    }
+
+    // MARK: - Toast
+
+    @ViewBuilder
+    var toastView: some View {
+        if let toast = app.toastMessage {
+            let isError = app.toastIsError
+            HStack(spacing: 8) {
+                Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    .foregroundColor(isError ? .red : .green)
+                Text(toast)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(isError ? .red : .green)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background((isError ? Color.red : Color.green).opacity(0.15))
+            .clipShape(Capsule())
+            .padding(.bottom, 12)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -173,16 +178,22 @@ struct EditorView: View {
 
             Spacer()
 
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Circle()
                     .fill(app.serverRunning ? Color.green : Color.red)
                     .frame(width: 8, height: 8)
-                Text(app.serverRunning ? "\(Int(app.avgCPU))%" : "off")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundColor(.secondary)
-                Text("\(app.numSynths)s")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundColor(.secondary)
+                if app.serverRunning {
+                    Text(String(format: "%.1f%%", app.avgCPU))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(.secondary)
+                    Text("\(app.numSynths) syn")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("off")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(.horizontal, 12)
