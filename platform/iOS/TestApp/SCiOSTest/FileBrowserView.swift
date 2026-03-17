@@ -7,6 +7,7 @@ struct FileBrowserView: View {
     @State private var showNewFileAlert = false
     @State private var newFileName = ""
     @State private var showImporter = false
+    @State private var showTemplates = false
 
     var body: some View {
         List {
@@ -101,6 +102,12 @@ struct FileBrowserView: View {
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
+                    showTemplates = true
+                } label: {
+                    Image(systemName: "doc.badge.plus")
+                }
+
+                Button {
                     showImporter = true
                 } label: {
                     Image(systemName: "square.and.arrow.down")
@@ -125,6 +132,17 @@ struct FileBrowserView: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showTemplates) {
+            TemplatePickerView(isPresented: $showTemplates) { filename, content in
+                if let file = fileManager.createFile(name: filename) {
+                    // Write template content
+                    let _ = fileManager.saveFile(file, content: content)
+                    openFile(file)
+                    app.isEditing = true  // Open in Edit mode for new templates
+                }
+            }
+            .environmentObject(app)
         }
     }
 
