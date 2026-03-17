@@ -31,6 +31,8 @@ class AppState: ObservableObject {
     }
     /// Last known text selection (saved before text view loses focus)
     @Published var lastSelection: String = ""
+    /// Last known selection range (for re-reading from codeText after scrub changes)
+    @Published var lastSelectionRange: NSRange?
     /// Tracks whether code has been modified since last save
     @Published var hasUnsavedChanges: Bool = false
 
@@ -40,6 +42,9 @@ class AppState: ObservableObject {
     @Published var scrubOriginalValue: String = ""
     @Published var scrubRange: NSRange?
     @Published var scrubPopupRect: CGRect = .zero
+    /// Scrub undo/redo history
+    @Published var scrubHistory: [Double] = []
+    @Published var scrubHistoryIndex: Int = -1
 
     private var server: SCiOSServerRef?
     private var statusTimer: Timer?

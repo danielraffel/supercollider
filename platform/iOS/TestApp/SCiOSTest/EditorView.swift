@@ -40,12 +40,17 @@ struct EditorView: View {
                 onEvaluateCode: { code in app.evaluateCode(code) },
                 onStop: { app.stopAll() },
                 onSelectionChanged: { selected in app.lastSelection = selected },
+                onSelectionRangeChanged: { range in app.lastSelectionRange = range },
                 onDoubleTap: { app.isEditing = true },
+                isScrubbing: app.isScrubbing,
                 onScrubStart: { range, value, rect in
                     app.scrubRange = range
                     app.scrubOriginalValue = value
                     app.scrubValue = Double(value) ?? 0
                     app.scrubPopupRect = rect
+                    // Initialize scrub history
+                    app.scrubHistory = [Double(value) ?? 0]
+                    app.scrubHistoryIndex = 0
                     app.isScrubbing = true
                 }
             )
@@ -81,6 +86,8 @@ struct EditorView: View {
                         liveMode = false
                         app.isScrubbing = false
                         app.scrubRange = nil
+                        app.scrubHistory = []
+                        app.scrubHistoryIndex = -1
                     }
                     .allowsHitTesting(true)
 
@@ -171,26 +178,55 @@ struct EditorView: View {
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
                 .foregroundColor(.orange)
 
-            HStack {
+            HStack(spacing: 12) {
                 Text("was \(app.scrubOriginalValue)")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                // Undo to original
+
+                Spacer()
+
+                // Undo
+                Button {
+                    scrubUndo()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(canScrubUndo ? .white : .white.opacity(0.2))
+                }
+                .disabled(!canScrubUndo)
+
+                // Redo
+                Button {
+                    scrubRedo()
+                } label: {
+                    Image(systemName: "arrow.uturn.forward")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(canScrubRedo ? .white : .white.opacity(0.2))
+                }
+                .disabled(!canScrubRedo)
+
+                // Reset to original
                 Button {
                     app.scrubValue = Double(app.scrubOriginalValue) ?? 0
+                    pushScrubHistory(app.scrubValue)
                     updateCodeWithScrubValue()
                     if liveMode { liveApply() }
                 } label: {
-                    Image(systemName: "arrow.uturn.backward.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(.orange.opacity(0.7))
                 }
             }
 
             // Slider
             let original = Double(app.scrubOriginalValue) ?? 0
             let range = scrubRange(for: original)
-            Slider(value: $app.scrubValue, in: range)
+            Slider(value: $app.scrubValue, in: range) { editing in
+                    if !editing {
+                        // Push to history when user finishes dragging slider
+                        pushScrubHistory(app.scrubValue)
+                    }
+                }
                 .tint(.orange)
                 .onChange(of: app.scrubValue) { _, _ in
                     updateCodeWithScrubValue()
@@ -212,6 +248,7 @@ struct EditorView: View {
             HStack(spacing: 20) {
                 Button {
                     app.scrubValue -= fineStep(for: original)
+                    pushScrubHistory(app.scrubValue)
                     updateCodeWithScrubValue()
                     if liveMode { liveApply() }
                 } label: {
@@ -220,6 +257,7 @@ struct EditorView: View {
                 }
                 Button {
                     app.scrubValue += fineStep(for: original)
+                    pushScrubHistory(app.scrubValue)
                     updateCodeWithScrubValue()
                     if liveMode { liveApply() }
                 } label: {
@@ -264,6 +302,8 @@ struct EditorView: View {
                         app.evaluateSelection()
                     }
                     app.scrubRange = nil
+                    app.scrubHistory = []
+                    app.scrubHistoryIndex = -1
                     app.showToast("Applied", isError: false)
                 } label: {
                     Text("Apply")
@@ -293,9 +333,18 @@ struct EditorView: View {
     /// Smart live apply: wraps {}.play blocks in Ndef for smooth crossfade updates.
     /// Ndef blocks are re-evaluated directly. Patterns use stop+re-evaluate.
     private func liveApply() {
-        // Get the code that would be evaluated (selection or whole block)
+        // Get the code that would be evaluated.
+        // During scrubbing, codeText has the updated value but lastSelection is stale.
+        // Re-read the selection range from the current codeText to get the scrubbed value.
         let code: String
-        if let snapshot = scSnapshotSelection?(), !snapshot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let range = app.lastSelectionRange {
+            let nsText = app.codeText as NSString
+            if range.location + range.length <= nsText.length {
+                code = nsText.substring(with: range)
+            } else {
+                code = app.codeText
+            }
+        } else if let snapshot = scSnapshotSelection?(), !snapshot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             code = snapshot
         } else if !app.lastSelection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             code = app.lastSelection
@@ -341,6 +390,43 @@ struct EditorView: View {
             app.evaluate("Ndef(\\scrub).stop(0.5);")
             liveNdefActive = false
         }
+    }
+
+    // MARK: - Scrub Undo/Redo
+
+    private var canScrubUndo: Bool {
+        app.scrubHistoryIndex > 0
+    }
+
+    private var canScrubRedo: Bool {
+        app.scrubHistoryIndex < app.scrubHistory.count - 1
+    }
+
+    private func pushScrubHistory(_ value: Double) {
+        // Trim any redo history beyond current index
+        if app.scrubHistoryIndex < app.scrubHistory.count - 1 {
+            app.scrubHistory = Array(app.scrubHistory.prefix(app.scrubHistoryIndex + 1))
+        }
+        // Don't push duplicate values
+        if let last = app.scrubHistory.last, abs(last - value) < 0.0001 { return }
+        app.scrubHistory.append(value)
+        app.scrubHistoryIndex = app.scrubHistory.count - 1
+    }
+
+    private func scrubUndo() {
+        guard canScrubUndo else { return }
+        app.scrubHistoryIndex -= 1
+        app.scrubValue = app.scrubHistory[app.scrubHistoryIndex]
+        updateCodeWithScrubValue()
+        if liveMode { liveApply() }
+    }
+
+    private func scrubRedo() {
+        guard canScrubRedo else { return }
+        app.scrubHistoryIndex += 1
+        app.scrubValue = app.scrubHistory[app.scrubHistoryIndex]
+        updateCodeWithScrubValue()
+        if liveMode { liveApply() }
     }
 
     // scrubBar is no longer needed — buttons are inline in the popup

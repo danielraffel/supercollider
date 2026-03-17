@@ -1,0 +1,46 @@
+SC: default group 1 created
+Loading synthdefs from default path: /private/var/mobile/Containers/Data/Application/D7612BE7-6F12-43C6-830F-B0CEAA534308/Documents/synthdefs
+*** ERROR: open directory failed '/private/var/mobile/Containers/Data/Application/D7612BE7-6F12-43C6-830F-B0CEAA534308/Documents/synthdefs'
+SC iOS: audio session configured (SR=48000, bufDur=0.0050, input=no)
+SC iOS: audio session activated (actual SR=48000, bufSize=240, in=0, out=2)
+SC iOS: audio driver setup complete (SR=48000, buf=240, in=no)
+SC_AudioDriver: sample rate = 48000.000000, driver's block size = 240
+SC iOS: starting audio
+SC iOS: audio started
+SC iOS: sclang connected to World 0x118130180
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = <null selector>, customInfoType = UIEmojiSearchOperations
+CUICatalog: Invalid asset name supplied: '(null)'
+CUICatalog: Invalid asset name supplied: '(null)'
+fopen failed for data file: errno = 2 (No such file or directory)
+Errors found! Invalidating cache...
+<0x10aa0da40> Gesture: System gesture gate timed out.
+fopen failed for data file: errno = 2 (No such file or directory)
+Errors found! Invalidating cache...
+Unable to simultaneously satisfy constraints.
+	Probably at least one of the constraints in the following list is one you don't want. 
+	Try this: 
+		(1) look at each constraint and try to figure out which you don't expect; 
+		(2) find the code that added the unwanted constraint or constraints and fix it. 
+(
+    "<NSLayoutConstraint:0x11bf34a50 V:|-(7)-[TUIKeyboardContentView:0x11f83f480]   (active, names: '|':TUIKeyplaneView:0x11fbb8400 )>",
+    "<NSLayoutConstraint:0x11bf343c0 V:[TUIKeyboardContentView:0x11f83f480]-(10)-|   (active, names: '|':TUIKeyplaneView:0x11fbb8400 )>",
+    "<NSLayoutConstraint:0x11fa03e80 V:|-(0)-[TUIKeyplaneView:0x11fbb8400]   (active, names: UIKeyboardLayoutStar Prev...:0x10dd3d800, '|':UIKeyboardLayoutStar Prev...:0x10dd3d800 )>",
+    "<NSLayoutConstraint:0x11fa03f20 V:[TUIKeyplaneView:0x11fbb8400]-(0)-|   (active, names: UIKeyboardLayoutStar Prev...:0x10dd3d800, '|':UIKeyboardLayoutStar Prev...:0x10dd3d800 )>",
+    "<NSLayoutConstraint:0x10de9d860 V:|-(0)-[UIKeyboardLayoutStar Prev...]   (active, names: UIKeyboardLayoutStar Prev...:0x10dd3d800, '|':UIKeyboardImpl:0x11bcf7c00 )>",
+    "<NSLayoutConstraint:0x10de9f6b0 V:[UIKeyboardLayoutStar Prev...]-(0)-|   (active, names: UIKeyboardLayoutStar Prev...:0x10dd3d800, '|':UIKeyboardImpl:0x11bcf7c00 )>",
+    "<NSLayoutConstraint:0x11fbc2c10 '_UITemporaryLayoutHeight' UIKeyboardImpl:0x11bcf7c00.height == 250   (active)>",
+    "<NSLayoutConstraint:0x11bf341e0 'TUIKeyplane.height' TUIKeyboardContentView:0x11f83f480.height == 216   (active)>"
+)
+
+Will attempt to recover by breaking constraint 
+<NSLayoutConstraint:0x11bf341e0 'TUIKeyplane.height' TUIKeyboardContentView:0x11f83f480.height == 216   (active)>
+
+Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
+The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
+...retrieving local-only general pasteboard failed with error: Error Domain=PBErrorDomain Code=10 "Pasteboard com.apple.UIKit.pboard.general is not available at this time." UserInfo={NSLocalizedDescription=Pasteboard com.apple.UIKit.pboard.general is not available at this time.}
+CUICatalog: Invalid asset name supplied: '(null)'
+CUICatalog: Invalid asset name supplied: '(null)'
+SC iOS: audio route changed: new device available
+SC iOS: route change — SR=48000, buf=240
+SC iOS: audio route changed: unknown
+SC iOS: route change — SR=48000, buf=240

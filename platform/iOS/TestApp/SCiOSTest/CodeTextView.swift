@@ -46,9 +46,13 @@ class SCCodeTextView: UITextView {
     private var longPressActive = false
     // The character range of the anchor line when long-press started
     private var longPressAnchorLineRange: NSRange?
+    // Our custom long-press gesture (so we can distinguish from UITextView's built-in one)
+    private var customLongPress: UILongPressGestureRecognizer?
+    // Tracks the selection during our gesture (survives UITextView's cleanup at .ended)
+    private var lastGestureSelection: NSRange?
 
     // Value scrub state
-    private var scrubActive = false
+    var scrubActive = false
     private var scrubRange: NSRange?
     private var scrubStartY: CGFloat = 0
     private var scrubOriginalValue: String = ""
@@ -68,7 +72,8 @@ class SCCodeTextView: UITextView {
         longPress.minimumPressDuration = 0.5
         longPress.delegate = self
         longPress.delaysTouchesBegan = true
-        longPress.cancelsTouchesInView = false
+        longPress.cancelsTouchesInView = true
+        customLongPress = longPress
         addGestureRecognizer(longPress)
 
         // Two-finger tap → Evaluate selected code (fast, no menu)
@@ -234,6 +239,9 @@ class SCCodeTextView: UITextView {
         case .began:
             longPressActive = true
 
+            // Cancel UITextView's built-in long-press gestures to prevent conflicts
+            cancelBuiltInLongPress()
+
             // Save content offset so UITextView's selectedRange assignment can't scroll the view
             let savedOffset = contentOffset
 
@@ -247,11 +255,13 @@ class SCCodeTextView: UITextView {
             // Try to find enclosing ( ... ) block first
             if let blockRange = findEnclosingBlock(at: charIndex) {
                 longPressAnchorLineRange = blockRange
+                lastGestureSelection = blockRange
                 setSelectedRangeWithoutScrolling(blockRange, savedOffset: savedOffset)
             } else {
                 // No block found — select current line
                 let anchorRange = lineRange(at: charIndex)
                 longPressAnchorLineRange = anchorRange
+                lastGestureSelection = anchorRange
                 if let r = anchorRange {
                     setSelectedRangeWithoutScrolling(r, savedOffset: savedOffset)
                 }
@@ -272,30 +282,42 @@ class SCCodeTextView: UITextView {
                 anchor.location + anchor.length,
                 current.location + current.length
             )
-            setSelectedRangeWithoutScrolling(NSRange(location: start, length: end - start), savedOffset: savedOffset)
+            let newSelection = NSRange(location: start, length: end - start)
+            lastGestureSelection = newSelection
+            setSelectedRangeWithoutScrolling(newSelection, savedOffset: savedOffset)
 
         case .ended, .cancelled, .failed:
-            let finalSelection = selectedRange
+            // Use our tracked selection — UITextView may have already cleared selectedRange
+            let finalSelection = lastGestureSelection ?? selectedRange
             longPressActive = false
             longPressAnchorLineRange = nil
+            lastGestureSelection = nil
+
+            // Cancel UITextView's built-in long-press gestures to prevent post-gesture interference
+            cancelBuiltInLongPress()
 
             // In read mode (isEditable=false), UITextView clears selection.
             // Re-assert it with double-async to fire after UITextView's cleanup.
             if readModeActive && finalSelection.length > 0 {
                 let savedOffset = contentOffset
-                DispatchQueue.main.async { [weak self] in
-                    DispatchQueue.main.async {
+                // Re-assert over multiple frames to defeat UITextView's deferred cleanup
+                func reassertSelection(_ remaining: Int) {
+                    guard remaining > 0 else { return }
+                    DispatchQueue.main.async { [weak self] in
                         guard let self = self else { return }
                         self.selectedRange = finalSelection
                         self.setContentOffset(savedOffset, animated: false)
-                        // Update the selection callback
-                        if let text = self.text {
-                            let nsText = text as NSString
-                            if finalSelection.location + finalSelection.length <= nsText.length {
-                                let sel = nsText.substring(with: finalSelection)
-                                scGetSelectedText = { sel }
-                            }
-                        }
+                        reassertSelection(remaining - 1)
+                    }
+                }
+                reassertSelection(4)
+
+                // Update the selection callback
+                if let text = self.text {
+                    let nsText = text as NSString
+                    if finalSelection.location + finalSelection.length <= nsText.length {
+                        let sel = nsText.substring(with: finalSelection)
+                        scGetSelectedText = { sel }
                     }
                 }
             }
@@ -310,6 +332,17 @@ class SCCodeTextView: UITextView {
 
         default:
             break
+        }
+    }
+
+    /// Cancel UITextView's built-in long-press gestures by toggling isEnabled.
+    /// This resets them to .possible state so they don't interfere with our custom gesture.
+    private func cancelBuiltInLongPress() {
+        for gesture in gestureRecognizers ?? [] {
+            if gesture is UILongPressGestureRecognizer && gesture !== customLongPress {
+                gesture.isEnabled = false
+                gesture.isEnabled = true
+            }
         }
     }
 
@@ -612,8 +645,21 @@ extension SCCodeTextView: UIGestureRecognizerDelegate {
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        // Allow long-press to coexist with the built-in text-view gestures
+        // Prevent our long-press from fighting with UITextView's built-in long-press
+        if gestureRecognizer is UILongPressGestureRecognizer &&
+           otherGestureRecognizer is UILongPressGestureRecognizer {
+            return false
+        }
+        // Allow coexistence with scroll, tap, and other gestures
         return true
+    }
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Don't start our custom long-press during scrubbing
+        if gestureRecognizer === customLongPress && scrubActive {
+            return false
+        }
+        return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
 }
 
@@ -627,7 +673,9 @@ struct CodeTextView: UIViewRepresentable {
     var onEvaluateCode: ((String) -> Void)?
     var onStop: (() -> Void)?
     var onSelectionChanged: ((String) -> Void)?
+    var onSelectionRangeChanged: ((NSRange) -> Void)?
     var onDoubleTap: (() -> Void)?
+    var isScrubbing: Bool = false
     var onScrubStart: ((NSRange, String, CGRect) -> Void)?
     var onScrubUpdate: ((Double) -> Void)?
     var onScrubEnd: (() -> Void)?
@@ -694,7 +742,9 @@ struct CodeTextView: UIViewRepresentable {
 
         // Read/Edit mode: readModeActive controls isEditable + keyboard
         textView.readModeActive = !isEditable
+        textView.scrubActive = isScrubbing
         context.coordinator.allowEditing = isEditable
+        context.coordinator.onSelectionRangeChanged = onSelectionRangeChanged
 
         // When AppState.lastSelection is cleared (after evaluation), reset the dedup
         // tracker so the user can re-select the same text and have it register again.
@@ -742,6 +792,8 @@ struct CodeTextView: UIViewRepresentable {
         var stopAll: (() -> Void)?
         /// Callback to save selection to AppState.lastSelection
         var onSelectionChanged: ((String) -> Void)?
+        /// Callback to save selection range to AppState.lastSelectionRange
+        var onSelectionRangeChanged: ((NSRange) -> Void)?
         /// When false, blocks text editing (Read mode) while keeping isEditable=true
         /// so UITextView maintains text selection properly
         var allowEditing: Bool = true
@@ -773,10 +825,16 @@ struct CodeTextView: UIViewRepresentable {
             // Skip if the selected text hasn't actually changed (fires constantly during scroll)
             guard selected != lastReportedSelection else { return }
             lastReportedSelection = selected
+            let nsRange = NSRange(
+                location: textView.offset(from: textView.beginningOfDocument, to: range.start),
+                length: textView.offset(from: range.start, to: range.end)
+            )
             // Defer to next run loop to avoid "Publishing changes from within view updates"
             let callback = onSelectionChanged
+            let rangeCallback = onSelectionRangeChanged
             DispatchQueue.main.async {
                 callback?(selected)
+                rangeCallback?(nsRange)
             }
         }
 

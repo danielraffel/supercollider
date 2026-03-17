@@ -1,0 +1,135 @@
+/ralph-loop:ralph-loop "You are porting SuperCollider's scsynth audio engine to iOS.
+
+GOVERNING RULES:
+- The file ai/CLAUDE.md defines mandatory coding standards, architecture rules, commit conventions, and project workflow.
+- You MUST read ai/CLAUDE.md at the start of EVERY iteration.
+- All code, tests, documentation, and commits MUST comply with ai/CLAUDE.md.
+- Any violation of ai/CLAUDE.md is a bug and must be fixed.
+
+SOURCE OF TRUTH:
+- The file ai/work-items.md defines required features and phases.
+- The file ai/IOS_PORT_PLAN.md contains the comprehensive architecture plan.
+- The file ai/CODEX_REVIEW.md contains critical corrections validated against the real codebase.
+- The file ai/CODEX_REVIEW_ACTIONS.md contains required fixes from the review.
+
+TASK:
+- Read ai/work-items.md at the start of EVERY iteration.
+- Identify all work items that are:
+  - NOT implemented, or
+  - Partially implemented / incomplete.
+- Implement ALL missing or incomplete items in the current codebase.
+- Update work item status as you go ([ ] → [~] → [x])
+
+TOOLS:
+- Use RepoPrompt (window 3 = supercollider workspace) at EVERY step to validate changes against the real codebase before committing. Use context_builder for architecture/context analysis, file_search for locating relevant code and references, and apply_edits for focused changes.
+- Use Sosumi MCP whenever Apple platform documentation, APIs, frameworks, entitlement behavior, AVAudioSession behavior, Core Audio rules, or other Apple docs need to be verified. Do not guess when Apple docs can answer the question.
+- Use xcodebuildmcp for building, testing, and running in the iOS simulator. Prefer it for simulator validation, test execution, and debugging iOS target failures.
+- Use Repo Prompt MCP whenever you need to inspect or cross-check SuperCollider source outside the current file context.
+- Use SwiftUI-Agent-Skill whenever you need Swift, SwiftUI, UIKit bridging, app shell, simulator UI, lifecycle, or Apple-platform implementation feedback.
+- Use /codex for parallel work (tests, code review, independent components).
+
+TOOLING DISCIPLINE:
+- Do not rely on memory for Apple APIs, iOS behavior, simulator details, or entitlement/runtime rules when Sosumi MCP can verify them.
+- Do not make broad codebase assumptions when RepoPrompt can inspect the real repository state.
+- Do not treat a build as verified until xcodebuildmcp has built and, where applicable, tested the simulator target.
+- Use SwiftUI-Agent-Skill as a specialist reviewer for Swift-side design and correctness, especially where the iOS host app, wrappers, lifecycle, or threading boundaries touch scsynth.
+
+RULES:
+- Do NOT stop after implementing a subset.
+- Do NOT assume a feature is complete without verifying the code builds and tests pass.
+- If a feature requires tests, documentation, or build verification, it is NOT complete until those exist.
+- Modify, refactor, or rewrite existing code if necessary.
+- NEVER break the desktop macOS build. Test regression after every iOS change.
+- NEVER use deprecated APIs in new code (AudioSession*, AUGraph, UIAccelerometer).
+- NEVER use dlopen/dlsym in iOS code paths.
+- Treat old SC_IPHONE code as REFERENCE ONLY — do not reuse as implementation base.
+
+PRIORITIZATION & PHASE GATING RULE:
+Within each iteration, the agent MUST:
+1. Identify all incomplete items in the current phase.
+2. Prioritize completing those items before starting any work in a later phase.
+3. Fully implement, test, and verify each item before marking it complete.
+4. Advance to the next phase only when all current-phase items are marked [x] or are explicitly blocked.
+
+Exception:
+- If an item is blocked by a dependency that exists only in a later phase:
+  - Explicitly document the dependency.
+  - Mark the item as [~] or [!] with rationale.
+  - Continue completing all other items in the current phase.
+
+Phase advancement is allowed ONLY when:
+- No unblocked items remain in the current phase.
+- All required tests pass.
+- Desktop macOS regression build passes.
+- The phase has been explicitly verified as complete.
+
+VALIDATION AT EVERY STEP:
+Before marking ANY work item complete:
+1. Use RepoPrompt context_builder to verify the change is correct in context
+2. Use Sosumi MCP when Apple platform behavior or documentation is relevant
+3. Build/test iOS target with xcodebuildmcp and confirm simulator behavior where applicable
+4. Build for iOS CLI fallback: cmake -B build-ios -DSC_IOS=ON && cmake --build build-ios --target libscsynth
+5. Build for desktop: cmake -B build-desktop && cmake --build build-desktop --target libscsynth
+6. Run any applicable tests
+7. Check for memory leaks, audio-thread violations, lock contention, or thread issues if relevant
+
+GIT DISCIPLINE:
+- Commit as you go whenever a meaningful unit of progress is completed and verified.
+- Do NOT wait until the end of a large batch of work if a small, coherent change is already buildable and tested.
+- Commits must be small, focused, and aligned to features or fixes in ai/work-items.md.
+- Commit messages must be imperative and follow ai/CLAUDE.md conventions.
+- Do NOT commit if no meaningful progress was made.
+- Stage specific files only — never git add -A or git add .
+- Before every commit, verify exactly what changed and ensure unrelated edits are excluded.
+- Prefer multiple small commits over one large mixed commit.
+
+EACH ITERATION MUST:
+1. Re-read ai/CLAUDE.md
+2. Re-read ai/work-items.md
+3. List remaining incomplete or missing items in current phase
+4. Implement as many as possible
+5. Verify against ai/CLAUDE.md
+6. Validate design/implementation against RepoPrompt context
+7. Consult Sosumi MCP if Apple docs are relevant
+8. Build/test iOS target with xcodebuildmcp if code changed
+9. Build desktop target (regression check) if code changed
+10. Run tests (if applicable)
+11. Commit any verified, meaningful progress
+12. Update ai/work-items.md status
+13. Re-check which items remain
+
+COMPLETION CONDITION:
+- ai/work-items.md contains ZERO unimplemented or incomplete items through Phase 6
+- All features through Phase 6 are fully implemented and verified
+- Tests pass on iOS simulator and desktop
+- Code and commit history comply with ai/CLAUDE.md
+- Desktop SuperCollider scripts can run their SynthDefs on iOS scsynth
+
+ONLY WHEN ALL CONDITIONS ARE MET:
+Output exactly: <promise>DONE</promise>
+
+IF STUCK:
+- After 20 iterations, document:
+  - What is blocked
+  - Why
+  - What was attempted
+  - What assumption may be wrong
+- Write findings to ai/stuck-report.md
+- Consider if the approach needs fundamental rethinking
+
+CODEX DELEGATION (OPTIONAL):
+- Use /codex <task> or codex exec --full-auto <task> for parallel work.
+- Good candidates for Codex delegation:
+  - Writing tests for code you just wrote
+  - Implementing an isolated component while you work on another
+  - Code review of completed work items
+  - Verifying desktop regression after iOS changes
+  - Investigating failures in a separate file set
+- Do NOT delegate to Codex when:
+  - The task depends on something you are currently building
+  - Multiple agents would edit the same file
+  - The task requires your current conversation context
+- When delegating, continue your own work in parallel.
+- Check Codex output before marking any work item complete.
+
+" --completion-promise "DONE" --max-iterations 120
