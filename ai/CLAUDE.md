@@ -7,6 +7,7 @@ This is a production-quality iOS port of SuperCollider's scsynth audio engine. T
 **Fork**: github.com/danielraffel/supercollider
 **Working directory**: /Users/danielraffel/Code/supercollider
 **Plans & status**: ai/ directory
+**Build instructions**: [ai/BUILD_IOS.md](BUILD_IOS.md) — start here for first-time iOS builds
 
 ## Mandatory Rules
 
